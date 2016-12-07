@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tns="http://tempuri.org/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" targetNamespace="http://tempuri.org/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://tempuri.org/">
+      <s:element name="Call-MMZUOU">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMZUOUResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMZUOUResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMZUBO">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMZUBOResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMZUBOResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMDROS">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMDROSResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMDROSResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMDEST">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMDESTResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMDESTResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MFLCAP">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MFLCAPResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MFLCAPResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MCTCAP">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MCTCAPResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MCTCAPResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMDOEU">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMDOEUResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMDOEUResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMCFWD">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMCFWDResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMCFWDResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMCINQ">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMCINQResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMCINQResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMVUOU">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MMVUOUResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MMVUOUResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MVBNCI">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="INPUT-VAL" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Call-MVBNCIResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Call-MVBNCIResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="Call-MMZUOUSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMZUOU" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMZUOUSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMZUOUResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMZUBOSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMZUBO" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMZUBOSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMZUBOResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMDROSSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMDROS" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMDROSSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMDROSResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMDESTSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMDEST" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMDESTSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMDESTResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MFLCAPSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MFLCAP" />
+  </wsdl:message>
+  <wsdl:message name="Call-MFLCAPSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MFLCAPResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MCTCAPSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MCTCAP" />
+  </wsdl:message>
+  <wsdl:message name="Call-MCTCAPSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MCTCAPResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMDOEUSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMDOEU" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMDOEUSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMDOEUResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMCFWDSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMCFWD" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMCFWDSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMCFWDResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMCINQSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMCINQ" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMCINQSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMCINQResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMVUOUSoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MMVUOU" />
+  </wsdl:message>
+  <wsdl:message name="Call-MMVUOUSoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MMVUOUResponse" />
+  </wsdl:message>
+  <wsdl:message name="Call-MVBNCISoapIn">
+    <wsdl:part name="parameters" element="tns:Call-MVBNCI" />
+  </wsdl:message>
+  <wsdl:message name="Call-MVBNCISoapOut">
+    <wsdl:part name="parameters" element="tns:Call-MVBNCIResponse" />
+  </wsdl:message>
+  <wsdl:portType name="dolVFSserviceSoap">
+    <wsdl:operation name="Call-MMZUOU">
+      <wsdl:input message="tns:Call-MMZUOUSoapIn" />
+      <wsdl:output message="tns:Call-MMZUOUSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMZUBO">
+      <wsdl:input message="tns:Call-MMZUBOSoapIn" />
+      <wsdl:output message="tns:Call-MMZUBOSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMDROS">
+      <wsdl:input message="tns:Call-MMDROSSoapIn" />
+      <wsdl:output message="tns:Call-MMDROSSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMDEST">
+      <wsdl:input message="tns:Call-MMDESTSoapIn" />
+      <wsdl:output message="tns:Call-MMDESTSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MFLCAP">
+      <wsdl:input message="tns:Call-MFLCAPSoapIn" />
+      <wsdl:output message="tns:Call-MFLCAPSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MCTCAP">
+      <wsdl:input message="tns:Call-MCTCAPSoapIn" />
+      <wsdl:output message="tns:Call-MCTCAPSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMDOEU">
+      <wsdl:input message="tns:Call-MMDOEUSoapIn" />
+      <wsdl:output message="tns:Call-MMDOEUSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMCFWD">
+      <wsdl:input message="tns:Call-MMCFWDSoapIn" />
+      <wsdl:output message="tns:Call-MMCFWDSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMCINQ">
+      <wsdl:input message="tns:Call-MMCINQSoapIn" />
+      <wsdl:output message="tns:Call-MMCINQSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMVUOU">
+      <wsdl:input message="tns:Call-MMVUOUSoapIn" />
+      <wsdl:output message="tns:Call-MMVUOUSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Call-MVBNCI">
+      <wsdl:input message="tns:Call-MVBNCISoapIn" />
+      <wsdl:output message="tns:Call-MVBNCISoapOut" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="dolVFSserviceSoap" type="tns:dolVFSserviceSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="document" />
+    <wsdl:operation name="Call-MMZUOU">
+      <soap:operation soapAction="http://tempuri.org/Call-MMZUOU" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMZUBO">
+      <soap:operation soapAction="http://tempuri.org/Call-MMZUBO" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMDROS">
+      <soap:operation soapAction="http://tempuri.org/Call-MMDROS" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMDEST">
+      <soap:operation soapAction="http://tempuri.org/Call-MMDEST" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MFLCAP">
+      <soap:operation soapAction="http://tempuri.org/Call-MFLCAP" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MCTCAP">
+      <soap:operation soapAction="http://tempuri.org/Call-MCTCAP" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMDOEU">
+      <soap:operation soapAction="http://tempuri.org/Call-MMDOEU" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMCFWD">
+      <soap:operation soapAction="http://tempuri.org/Call-MMCFWD" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMCINQ">
+      <soap:operation soapAction="http://tempuri.org/Call-MMCINQ" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MMVUOU">
+      <soap:operation soapAction="http://tempuri.org/Call-MMVUOU" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Call-MVBNCI">
+      <soap:operation soapAction="http://tempuri.org/Call-MVBNCI" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="dolVFSservice">
+    <wsdl:port name="dolVFSserviceSoap" binding="tns:dolVFSserviceSoap">
+      <soap:address location="http://dolservicedev/dolVFSService.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

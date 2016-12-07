@@ -1,0 +1,2819 @@
+<<****************************************************>>
+<<Object Name     Programmer    Version/Update/Fix    >>
+<<                                                    >>
+<< $Date: $                                           >>
+<< $Author: $                                         >>  
+<< $Revision: $                                       >>
+<<  DONLUP        Mark Taylor     A.0.6 02/24/2000    >>
+<<---------------------------------------------------->>
+<<                              DESCRIPTION           >>
+<< based on HANDLR                                    >>
+<< This program handles on line update messages for   >>
+<< web basewd transactions such as:                   >>
+<<  Report of Sale                                    >>
+<<  Destroyed vehicle                                 >>
+<<  Affidavit of Sale                                 >>
+<<                                                    >>
+<< These are finalized Transactions, that have        >>
+<< been successfull written to the ODONLIPC           >>
+<< Interprocess Communication read destructive file.  >>
+<<                                                    >>
+<<____________________________________________________>>
+<< INPUTS:                                            >>
+<<   ODONLIPC.PUB    message file written by          >>
+<<   M-RPT-SALE      report of sale HP dataset        >>
+<<   M-DESTROYED-VEH destroyed vehicle HP dataset     >>
+<<   M-AFFIDAVIT-SALE AOS vehicle HP dataset          >>
+<<   M-SCAN-CONTROL  storage for IPC records          >>
+<<                                                    >>
+<< PASCAL INTRINSICS USED TO COMMUNICATE TO THE UNISYS>>
+<< VIA THE SNA/IMF Link.                              >>
+<<____________________________________________________>>
+<< Intrinsic Name    Parameters Used                  >>
+<<_______________    _________________________________>>
+<<  OPEN3270         DEVICENUM, SNALNKINFO, FLAGS,    >>
+<<                   TERMINALID, DEVTYPE, FFINDEX,    >>
+<<                   SCREENSIZE, TIMEOUT, RESULT      >>
+<<The  OPEN3270 Intrinsic is used to open the SNA/IMF >>
+<<link between the HP3000 and the UNISYS.  It returns >>
+<<a device number, the SNA link information, terminal >>
+<<ID, device type, screen size, etc.                  >>
+<<                                                    >>
+<<  CLOSE3270        TERMINALID, RESULT               >>
+<<The  CLOSE3270 intrinsic is used to close the SNA/  >>
+<<IMF link between the HP3000 and the UNISYS.  It -   >>
+<<returns a result telling the online update the  -   >>
+<<result of the intrinsic call.  It passes the term.  >>
+<<ID, to the unisys to inform it which virtual term.  >>
+<<to close.                                           >>
+<<                                                    >>
+<<  TRAN3270         TERMINALID, AID, CURSORROW,      >>
+<<                   CURSORCOLUMN, RESULT             >>
+<<The  TRAN3270 intrinsic is used to transmit data and>>
+<<commands to the UNISYS using the SNA/IMF link.  It  >>
+<<returns a result that tells the online update prog. >>
+<<what the UNISYS did with the transmission.  It -    >>
+<<passes terminal ID, Aid, Cursor Row and Column.     >>
+<<                                                    >>
+<<  SCREENATTR       TERMINALID, PRINTFORMAT,         >>
+<<                   STARTPRINT, SOUNDALARM,          >>
+<<                   KEYBOARDLOCK, NUMFIELDS,         >>
+<<                   SCREENSTATUS, CURSORROW,         >>
+<<                   CURSORCOLUMN, RESULT             >>
+<<The  SCREENATTR intrinsic is used to obtain the -   >>
+<<current screeen attributes from the UNISYS.  This   >>
+<<intrinsic returns several platform specific parms.  >>
+<<used by the online update to define the UNISYS, -   >>
+<<screen dimensions, etc.                             >>
+<<                                                    >>
+<<  READSCREEN       TERMINALID, OFFSET, MAXINBUFLEN, >>
+<<                   INBUF, ACTINBUFLEN, RESULT       >>
+<<The  READSCREEN intrinsic is used to obtain the -   >>
+<<result of the last transmit the HP3000 sent to the  >>
+<<UNISYS.  This intrinsic will return whether it was  >>
+<<successful or not and will return certain error -   >>
+<<codes, based on the exception that occurred.        >>
+<<                                                    >>
+<<  WRITEFIELD       TERMINALID, FIELDNUM, OFFSET,    >>
+<<                   OUTBUF, OUTBUFLEN, RESULT        >>
+<<The  WRITEFIELD intrinsic is used to write a field  >>
+<<to the screen on the UNISYS.  The intrinsic receives>>
+<<a result and passes the parameters in order to tell >>
+<<the UNISYS what field it is writing , etc.          >>
+<<                                                    >>
+<<  RECV3270         TERMINALID, RESULT               >>
+<<The  RECV3270 intrinsic is used to obtain the -     >>
+<<response from the UNISYS on the last intrinsic -    >>
+<<called or the last transmission sent from the HP3000>>
+<<to the UNISYS.                                      >>
+<< H17754                                             >>
+<<------------------------------------------------------->>
+<<****************************************************>>
+<<   MAINTENANCE/ENHANCEMENTS HISTORY                 >>
+<<SSR   Date        Init  Description                 >>
+<<7330  02/24/2000  JMT   Vehicle Report of Sale      >>
+<<                        First transaction.          >>
+<<7842  03/09/2001  GJS   Enhancements to the         >>
+<<       Update process to ensure reliable real time  >>
+<<       processing of Report of Sale finalized -     >>
+<<       transactions.  Program will now account for  >>
+<<        TOA unavailable and no reponse from host    >>
+<<         exceptions and will continue to attempt to >>
+<<        process transactions without loosing them.  >>
+<<                                                    >>
+<<7978 07/25/2002 RLC Testing of multiple security    >>
+<<        classes per line revealed the need to elimi->>
+<<        nate an invalid char (%) from the security  >>
+<<        class name.                                 >>
+<<8166 09/10/2002 JMT For Report of sale accept both  >>
+<<                    AR for VFS report of sale and   >>
+<<                    AS for IPO report of sale       >>
+<<H23508 11/17/2002  BTS Modified Unisys inquiry      >>
+<<       processses to use native-mode procedure calls>>
+<<H17754 02/25/2003 JMT added destroyed vehicle trans >>
+<<H17754 03/07/2003 JMT changed some fields names for >>
+<<                       M-DESTROYED-VEH(REGNDB)      >>
+<<H17754 03/13/2003 JMT e-mail subject line corrected >>
+<<21124  03/10/2003 JCM Added use of DTLNET to replace>>
+<<                      SNA                           >>
+<<H40080 08/21/2003 JCM Added Disconnect of TELNET    >>
+<<                      connection                    >>
+<<H31106 09/03/2003 BQN added Affidavit of Sale trans >>
+<<H24092 08/21/2003 JCM Added Code for UAR            >>
+<<24092  10/07/2003 JCM Accommodate HPGATEWAY (UAR)   >>
+<<40797  03/24/2004 JCM Updated for vehicles (UAR)    >>
+<<40797  04/08/2004 JCM Removed SNA and corrected     >>
+<<                                error handling      >>
+<<40797  04/20/2004 JCM Corrected move of VC-DESCRIPTOR>>
+<<H37244 06/02/2005 BTS Added RS03 and other RS## for >>
+<<                  tracing errors purposes.          >>
+<<                                                    >>
+<<H54724 08/24/2005 GJS Added logic to process another>>
+<<                      online update transaction type>>
+<<                      for Change R/O Addresses -    >>
+<<                      in batches, fleet batches, and>>
+<<                      Single Chg R/O Address trans. >>
+<<H57782 03/23/2006 RLC Added OPERATOR3 to read of M-RPT-SALE, and to >>
+<<                      update buffer going out for Rpt-of-Sale and   >>
+<<                      Aff-of-Sale (hard-coded to 666) transactions. >>
+<<****************************************************>>
+<<SYSTEM ENVIRONMENT SECTION                          >>
+<<****************************************************>>
+!PAGE
+SYSTEM  DONLUP
+       ,BASE=REGNDB("WRITER",1)
+            ,INRGDB("WRITER",1)
+            ,TABLDB("READER",5)
+       ,FILE=COMFILE.UTIL.SYS(READ)
+            ,ODONLIPC(READ)
+            ,WDONLIPC(APPEND)
+       ,DATA=4000,420
+       ,WORK=40,10
+       ;
+!PAGE
+<<----------------------------------------------->>
+<<        GLOBAL INTRINSIC DEFINITIONS           >>
+<<----------------------------------------------->>
+!INCLUDE(GLOBINTR.INCLUDES)
+!PAGE
+<<----------------------------------------------->>
+<<        LOCAL INTRINSIC DEFINITIONS            >>
+<<----------------------------------------------->>
+DEFINE(INTRINSIC) FATHER;
+<<----------------------------------------------->>
+<<     GLOBAL MARKER ITEM DEFINITIONS            >>
+<<----------------------------------------------->>
+!INCLUDE(GLNBMARK.INCLUDES)
+DEFINE(ITEM) ME-LOCAL @;
+
+!PAGE
+<<----------------------------------------------->>
+<<      LOCAL OR DICTIONARY RE-DEFINITIONS       >>
+<<----------------------------------------------->>
+
+DEFINE(ITEM)   T-VERSIONID        X(14), INIT="V20040221-0900"
+              :T-PIN              I(4)
+              :T-CMD-STRING       X(80)
+              :T-CMD-ERR          I(4)
+              :T-CMD-ERR-IND      I(4)
+              :T-PRINTOP-MSG      X(56)
+              :C-T-PO-SNAERR      X(7)  = T-PRINTOP-MSG(1)
+              :C-T-PO-INTR        X(8)  = T-PRINTOP-MSG(8)
+              :C-T-PO-FAILED      X(16) = T-PRINTOP-MSG(16)
+              :C-T-PO-STATUS  9+(4,0,4) = T-PRINTOP-MSG(32)
+              :C-T-PO-ON          X(4)  = T-PRINTOP-MSG(36)
+              :C-T-PO-NODE        X(8)  = T-PRINTOP-MSG(40)
+              :C-T-PO-IN          X(4)  = T-PRINTOP-MSG(48)
+              :C-T-ERR-PARA       X(5)  = T-PRINTOP-MSG(52)
+              :T-MSG-LENGTH       I(2)
+              :T-PRINTOP-CTRL     I(2)
+              :T-INQ-TRACE        X (1,0,2)
+              :T-SCAN-STAT        I(1,0,2)
+              :T-LNUM             I(4,0,2)
+              :T-BRAKES           X (1,0,2)
+              :T-NO-ATTEMPTS      I+(5,0,2)      << 7842 >>
+              :T-PAUSE-SECS       R (2,,4)
+              :T-DISP-SECS        9+(8,0,8)
+              :T-TOA-ERR          X (1,0,2)
+              :T-BAD-DATA         X (1,0,2)
+              :T-BRAND-UPD-ERR    X (1,0,2)                 <<37244>>
+              :T-NO-RESPONSE      X (1,0,2)
+              :T-UNEXPECTED       X (1,0,2)
+              :C-G-SNAND-ENV      X(1)=G-SNANODE(1)         <<21124>>
+              :C-G-SNAND-VCD      J(9)=G-SNANODE(2)         <<21124>>
+              :VC-DESCRIPTOR      J(9)                      <<21124>>
+              :INPUT-LENGTH       J(9)                      <<21124>>
+              :OUTPUT-LENGTH      J(9)                      <<21124>>
+              :TN-STATUS          J(9)                      <<21124>>
+              :T-VARS X(1,,2)                               <<21124>>
+              :T-DTLNETVARS       X(32)                     <<21124>>
+              :T-CIVAR-NAME       X(32)                     <<21124>>
+              :T-CIVAR-STATUS     J(9,,4)                   <<21124>>
+              :  C-INFO-STAT      J(4,,2)=T-CIVAR-STATUS(1) <<21124>>
+              :  C-SUBSYS-STAT    J(4,,2)=T-CIVAR-STATUS(3) <<21124>>
+              :T-CIVAR-STAT-D     X(22,,24)
+              :  C-SUBS-LABEL     X(6)=T-CIVAR-STAT-D(1)
+              :  C-SUBS-STATD     9(4)=T-CIVAR-STAT-D(7)
+              :  C-SEMI           X(1)=T-CIVAR-STAT-D(11)
+              :  C-INFO-LABEL     X(6)=T-CIVAR-STAT-D(12)
+              :  C-INFO-STATD     9(4)=T-CIVAR-STAT-D(18)
+              :T-CIVAR-KWORD      I(9)                      <<21124>>
+              :T-CIVAR-XKEYVAL    X(32)                     <<21124>>
+              :T-CIVAR-NKEYVAL    J(9)                      <<21124>>
+              :T-VITEMNUM2        J(9)                      <<21124>>
+              :T-VITEMNUM11       J(9)                      <<21124>>
+              :T-VITEMNUM14       J(9)                      <<21124>>
+              :T-VITEM2           X(255,,256)               <<21124>>
+              :T-VITEM11          J(9)                      <<21124>>
+              :T-VITEM14          J(9)                      <<21124>>
+              :T-COMMAND          X(279,,280)               <<21124>>
+              :T-MSG-LEVEL        I(4)                      <<21124>>
+              :T-NL'INT           I(4), INIT=0              <<21124>>
+              :  C-NL             X(1)=T-NL'INT(1)          <<21124>>
+              :T-CR'INT           I(4), INIT=13             <<21124>>
+              :  C-CR             X(1)=T-CR'INT(2)          <<21124>>
+              :C-G-SNACL-VCD      J(9)=G-SNACLASS(2)        <<24092>>
+              :T-PROTOCOL-IND     X(8)                      <<24092>>
+              :T-HTTP-HOST        X(16)                     <<24092>>
+              :T-HTTP-SOAP        X(128)                    <<24092>>
+              :T-HEADER           X(256)                    <<24092>>
+              :T-HEADER-COMP      =T-HEADER                 <<24092>>
+              :T-SOAP-ACTION      X(32)                     <<24092>>
+              :T-INQ-TYPE-IND     X(4)                      <<24092>>
+              :T-DEBUG-SW         X(1,,2)                   << H54724 >>
+              :T-KEY-FOR-EMAIL    X(20)
+              ;
+
+DEFINE(ITEM) T-CHG-ADDR-UPD       X(234)           << H54724 >>
+        <<  :  C-T-CHG-SOE        X(1,,1)    = T-CHG-ADDR-UPD(1)  >>
+            :  C-T-CHG-TIP        X(4,,4)    = T-CHG-ADDR-UPD(1)
+            :  C-T-CHG-TIP-1      X(1,,1)    = T-CHG-ADDR-UPD(1)
+            :  C-T-CHG-TIP-2      X(1,,1)    = T-CHG-ADDR-UPD(2)
+            :  C-T-CHG-TIP-3-6    X(4,,4)    = T-CHG-ADDR-UPD(3)
+            :  C-T-CHG-PLATE      X(12,,12)  = T-CHG-ADDR-UPD(7)
+            :  C-T-CHG-ADDR1      X(30,,30)  = T-CHG-ADDR-UPD(19)
+            :  C-T-CHG-ADDR2      X(30,,30)  = T-CHG-ADDR-UPD(49)
+            :  C-T-CHG-CITY       X(24,,24)  = T-CHG-ADDR-UPD(79)
+            :  C-T-CHG-STATE      X(2,,2)    = T-CHG-ADDR-UPD(103)
+            :  C-T-CHG-ZIP        X(5,,5)    = T-CHG-ADDR-UPD(105)
+            :  C-T-CHG-ZIP-4      X(4,,4)    = T-CHG-ADDR-UPD(110)
+            :  C-T-CHG-RTAZONE    X(1,,1)    = T-CHG-ADDR-UPD(114)
+            :  C-T-CHG-RTA-STAT   X(1,,1)    = T-CHG-ADDR-UPD(115)
+            :  C-T-CHG-SPMA-JUR   9+(4,,4)   = T-CHG-ADDR-UPD(116)
+            :  C-T-CHG-SPMASTAT   X(1,,1)    = T-CHG-ADDR-UPD(120)
+            :  C-T-CHG-LRC        9+(2,0,2)  = T-CHG-ADDR-UPD(121)
+            :  C-T-CHG-ADDR-FLG   X(1,,1)    = T-CHG-ADDR-UPD(123)
+            :  C-T-CHG-LTRAN-DT   9+(7,0,7)  = T-CHG-ADDR-UPD(124)
+            :  C-T-CHG-LTRAN-TM   9+(6,0,6)  = T-CHG-ADDR-UPD(131)
+            :  C-T-CHG-LTRAN-CD   X(2,,2)    = T-CHG-ADDR-UPD(137)
+            :  C-T-CHG-ADDROPT1   X(30,,30)  = T-CHG-ADDR-UPD(139)
+            :  C-T-CHG-ADDROPT2   X(30,,30)  = T-CHG-ADDR-UPD(169)
+            :  C-T-CHG-CITY-OPT   X(24,,24)  = T-CHG-ADDR-UPD(199)
+            :  C-T-CHG-ST-OPT     X(2,,2)    = T-CHG-ADDR-UPD(223)
+            :  C-T-CHG-ZIP-OPT    X(9,,9)    = T-CHG-ADDR-UPD(225)
+            :T-CHGRO-ADDR-LEN     I(5,0,2)         << H54724 >>
+            ;
+                                                   << H54724 >>
+!PAGE
+<<+++++++++++++++++++++++++++++++++++++++++++++++>>
+0000-MAINLINE:
+<<+++++++++++++++++++++++++++++++++++++++++++++++>>
+  PERFORM 1000-BEGIN;
+  PERFORM 2000-GET-IPC;
+  PERFORM 3000-END-DONLUP;
+
+EXIT;
+
+<<----------------------------------------------->>
+1000-BEGIN:
+<<----------------------------------------------->>
+
+!INCLUDE(GLNBINIT.INCLUDES)
+
+<<+++++++++++++++++++++++++++++++++++++++++++++++>>
+<<    LOCAL STATIC LIST REGISTER ITEMS GO HERE   >>
+<<+++++++++++++++++++++++++++++++++++++++++++++++>>
+
+LIST(AUTO) M-SCAN-CONTROL;
+LIST(AUTO) M-RPT-SALE,INIT;
+
+LIST(AUTO) D-ADDR-CHANGE, INIT;                    << H54724 >>
+
+<< H17754 >>
+<< additional fields needed for M-DESTROYED-VEH >>
+LIST DESTROYED-KEY           ,INIT
+    :DV-TRAN-DATE            ,INIT
+    :DV-TRAN-TIME            ,INIT
+    :ONLINE-UPDT-IND         ,INIT
+    :DEST-TRAN-CODE          ,INIT
+    :REBUILT-IND             ,INIT
+    :DESTROYED-DATE          ,INIT
+    :DEALER                  ,INIT
+    ;
+
+<< H31106 >>
+<< additional fields needed for M-AFFIDAVIT-SALE >>
+LIST AOS-KEY                 ,INIT
+    :AOS-TRAN-TYPE           ,INIT
+    :AOS-TRAN-DATE           ,INIT
+    :AOS-TRAN-TIME           ,INIT
+    :AOS-DATE                ,INIT
+    :AOS-FLAG                ,INIT
+    :AOS-NUMBER              ,INIT
+    ;
+
+LIST IPC-REC      ,INIT
+    :L-UPD-STRING ,INIT
+    :L-RESP-STRING,INIT
+    :T-CHG-ADDR-UPD          ,INIT     << H54724 >>
+    :T-CHGRO-ADDR-LEN        ,INIT     << H54724 >>
+    :L-UPD-LENGTH
+    :COMPUTER-ID             ,INIT
+    :NODE-KEY                ,INIT
+    :SNANODE                 ,INIT
+    :SNACLASS                ,INIT
+    :SNASTATUS               ,INIT
+    :T-PIN                   ,INIT
+    :T-CMD-STRING            ,INIT
+    :T-CMD-ERR               ,INIT
+    :T-CMD-ERR-IND           ,INIT
+    :T-PRINTOP-MSG           ,INIT
+    :T-MSG-LENGTH
+    :T-PRINTOP-CTRL
+    :T-INQ-TRACE             ,INIT
+    :T-SCAN-STAT             ,INIT
+    :T-LNUM                  ,INIT
+    :L-DB-MODE               ,INIT
+    :L-DB-QUAL-ENT           ,INIT
+    :L-DB-QUAL-SET           ,INIT
+    :G-SNANODE               ,INIT
+    :G-SNACLASS              ,INIT
+    :G-TERMINALID            ,INIT
+    :G-V-WINDOW              ,INIT
+    :G-TEST-SWS              ,INIT
+    :T-BRAKES                ,INIT
+    :T-NO-ATTEMPTS           ,INIT               << 7842 >>
+    :T-PAUSE-SECS            ,INIT
+    :T-DISP-SECS             ,INIT
+    :T-TOA-ERR               ,INIT
+    :T-BAD-DATA              ,INIT
+    :T-BRAND-UPD-ERR         ,INIT               <<37244>>
+    :T-NO-RESPONSE           ,INIT
+    :T-UNEXPECTED            ,INIT
+    :T-CR'INT
+    :T-VERSIONID                                 <<21124>>
+    :VC-DESCRIPTOR                               <<21124>>
+    :INPUT-LENGTH                                <<21124>>
+    :OUTPUT-LENGTH                               <<21124>>
+    :TN-STATUS                                   <<21124>>
+    :T-PROTOCOL-IND                              <<24092>>
+    :T-HTTP-HOST, INIT                           <<24092>>
+    :T-HTTP-SOAP, INIT                           <<24092>>
+    :T-HEADER                                    <<24092>>
+    :T-HEADER-COMP                               <<24092>>
+    :T-SOAP-ACTION, INIT                         <<24092>>
+    :T-INQ-TYPE-IND,INIT                         <<24092>>
+    :T-KEY-FOR-EMAIL
+    :T-DEBUG-SW    ,INIT
+    :ME-LOCAL
+    ;
+
+  LIST L-CMPUTRID-BUF,INIT;
+
+  << This program is called to read the CMPUTRID.PUB -  >>
+  << file, to get System Configuration information.     >>
+  CALL DCONFG,DATA=L-CMPUTRID-BUF;
+
+  MOVE (COMPUTER-ID)     = (C-L-COMPUTER-ID);
+  MOVE (C-G-TS-HOST-DEV) = (C-L-HOST-DEV);
+  MOVE (C-G-TS-VEH-UPD)  = (C-L-VEH-UPD);
+  MOVE (C-G-TS-VEH-USTS) = (C-L-VEH-USTS);
+
+  SET(STACK) LIST(L-CMPUTRID-BUF);
+  SET(STACK) LIST (*);
+
+<<+++++++++++++++++++++++++++++++++++++++++++++++>>
+<<      DO TRANSACT OPTION SETTING HERE          >>
+<<+++++++++++++++++++++++++++++++++++++++++++++++>>
+
+  SET(OPTION) NOLOCK;
+  SET(OPTION) DEPTH=0,WIDTH=132,NOHEAD;  << 7236 >>
+
+  MOVE (C-T-PO-SNAERR)  = "SNAERR-";
+  MOVE (C-T-PO-FAILED)  = " FAILED. STATUS=";
+  MOVE (C-T-PO-ON)      = " ON ";
+  MOVE (C-T-PO-IN)      = " IN ";
+  LET  (T-MSG-LENGTH)   = -56;
+  LET  (T-PRINTOP-CTRL) = 0;
+
+  PROC FATHER (&(T-PIN));
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2000-GET-IPC:
+<<-------------------------------------------------------------------->>
+<< This is the main loop that checks the scanner status and then      >>
+<< reads the IPC file.  The IPC file triggers the process to do       >>
+<< an on-line update.                                                 >>
+<<-------------------------------------------------------------------->>
+
+<< Issue an FCONTROL on the IPC file OINTIPC, to enable extended wait >>
+<< this allows a process such as DINTUP to pause when no records are  >>
+<< currently in the IPC file and allows the process to go to sleep -  >>
+<< until a record is written to this file, rather than getting an  -  >>
+<< error due to the file being empty.                                 >>
+
+  FILE(CLOSE) WDONLIPC;
+
+  LET (T-LNUM) = 1;
+  FILE(CONTROL) ODONLIPC
+               ,CODE=45
+               ,PARM=T-LNUM
+               ;
+
+  FILE(OPEN) WDONLIPC
+            ,LIST=(IPC-REC)
+            ;
+
+  MOVE (T-BRAKES)       = "N";
+
+  << Variable containing the number of seconds to>>
+  << pause.                                      >>
+  LET  (T-PAUSE-SECS)   = 0;
+
+  << Variable containing the number of attempts  >>
+  << there were to transmit the update request   >>
+  <<                              to the UNISYS. >>
+  LET  (T-NO-ATTEMPTS)  = 0;
+
+  << Variable that keeps track of TOA errors     >>
+  << on the UNISYS 2200.                         >>
+  MOVE (T-TOA-ERR)      = "N";
+
+  << Variable that keeps track of bad data errors>>
+  << when trying to transmit the update to the   >>
+  << UNISYS 2200.                                >>
+  MOVE (T-BAD-DATA)     = "N";
+
+  << Variable that keeps track of MNVTIS Brand   >>
+  << when trying to transmit the update to the   >>
+  << VHS.                                        >>
+  MOVE (T-BRAND-UPD-ERR) = "N";
+
+  << Variable that keeps track of no responses   >>
+  << from host.                                  >>
+  MOVE (T-NO-RESPONSE)  = "N";
+
+  << Variable to keep track of unexpected errors >>
+  << from host.                                  >>
+  MOVE (T-UNEXPECTED)   = "N";
+
+  MOVE (NB-PROG-NAME)   = "DONLUP";
+
+  MOVE (IPC-REC)        = (IPC-REC);             << 7842 >>
+  MOVE (C-IPC-KEY)      = (C-IPC-KEY);           << 7842 >>
+  MOVE (C-IPC-UPD-TYPE) = (C-IPC-UPD-TYPE);      << 7842 >>
+
+  DATA T-DEBUG-SW ("ENTER 'Y' TO RUN IN DEBUG MODE");
+
+
+
+  REPEAT
+  DO
+    PERFORM 2010-PROCESS-ODONLIPC-REC;
+  DOEND
+  UNTIL (T-BRAKES) = "Y";
+
+RETURN;                                          << 7842 >>
+
+<<-------------------------------------------------------------------->>
+2010-PROCESS-ODONLIPC-REC:
+<<-------------------------------------------------------------------->>
+<< the IPC file has a record and now we're starting the on-line update>>
+<<-------------------------------------------------------------------->>
+
+  << Repeat loop, that reads each record in the ipc file and attempts >>
+  << to transmit each record read to the unisys.  This repeat loop is >>
+  << performed until an error condition occurs.  Such as an TOA Error,>>
+  << Bad Data error or No Response from host error.  Depending on the >>
+  << error returned this routine will pause for a variable amount of ->>
+  << time and in some cases may abort.                                >>
+
+
+  REPEAT
+  DO
+    MOVE (T-TOA-ERR)         = "N";
+    MOVE (T-BAD-DATA)        = "N";
+    MOVE (T-NO-RESPONSE)     = "N";
+    MOVE (T-BRAND-UPD-ERR)   = "N";           <<H37244>>
+    MOVE (T-UNEXPECTED)      = "N";
+    MOVE (T-KEY-FOR-EMAIL)   = " ";
+    MOVE (IPC-REC)           = ".";
+    MOVE (L-UPD-STRING)      = " ";            << 7842 >>
+    MOVE (T-CHG-ADDR-UPD)    = " ";            << H54724 >>
+    MOVE (PLATE)             = " ";
+
+    PERFORM 8300-GET-SCANNER-STATUS;
+
+    IF (T-SCAN-STAT) = 0 THEN
+    DO
+      GET ODONLIPC
+         ,LIST=(IPC-REC)
+         ,STATUS
+         ;
+
+      IF STATUS <> 0 THEN
+      DO
+        DISPLAY $TODAY
+               :$TIME
+               :"FAILURE Trying to read ODONLIPC File"
+               ;
+        MOVE (G-IPARANAME) = "2010-PROCESS-ODONLIPC-REC";
+        MOVE (G-IERRMSG) =
+             "Unable to read ODONLIPC! - Fatal Error ABORTING!";
+        PERFORM SEND-ERROR-EMAIL;
+        PERFORM 9005-NB-FATAL-NONIMAGE;
+        EXIT;
+      DOEND
+      ELSE
+      DO
+        PERFORM 2020-INTERPRET-ODONLIPC;
+      DOEND;
+
+    DOEND;
+
+  DOEND
+  UNTIL (T-BRAKES)              = "Y"
+     OR (T-TOA-ERR)             = "Y"
+     OR (T-BAD-DATA)            = "Y"
+     OR (T-NO-RESPONSE)         = "Y"
+     OR (T-BRAND-UPD-ERR)       = "Y"
+     OR (T-UNEXPECTED)          = "Y";
+
+  IF (T-BRAKES)                 = "Y" THEN
+  DO
+    << A Stop command was issued from the SCANSTOP Jobstream, >>
+    << so stop the DONLUP Process.                            >>
+
+    DISPLAY $TODAY
+           :$TIME
+           :"Stop Command issued on DONLUP Process!"
+           ;
+    RETURN;
+  DOEND;
+
+  IF (C-G-SNAND-ENV) = "T" THEN
+  DO
+    PERFORM 8888-DISCONNECT;
+
+    IF (T-PROTOCOL-IND) = "HTTP" THEN
+      LET (C-G-SNACL-VCD) = 0
+    ELSE
+      LET (C-G-SNAND-VCD) = 0;
+
+  DOEND;
+
+  LET (T-NO-ATTEMPTS) = (T-NO-ATTEMPTS) + 1;
+  IF (T-NO-ATTEMPTS) > 1 THEN
+  DO
+    << More than 1 consecutive error was returned, so write the     >>
+    << current transaction back to the ipc file, calculate scalable >>
+    << pause time, pause, and then try the next transmission.       >>
+    << If more than 5 consecutive errors, send an email as well.    >>
+
+    LET (T-PAUSE-SECS) = [(T-NO-ATTEMPTS) - 1]**2;
+
+    IF (T-PAUSE-SECS) > 300 THEN
+      LET (T-PAUSE-SECS) = 300;
+
+  DOEND
+  ELSE
+  DO
+    LET (T-PAUSE-SECS) = 0;
+  DOEND;
+
+  LET (T-DISP-SECS) = (T-PAUSE-SECS);
+
+  IF (T-TOA-ERR) = "Y" THEN
+  DO
+    MOVE (T-TOA-ERR)      = "N";
+    DISPLAY $TODAY
+           :$TIME
+           :"TOA/DB ERROR, PAUSING FOR"
+           :T-DISP-SECS: " SECS"
+           ;
+    PERFORM 2600-REWRITE-ODONLIPC-REC;
+  DOEND
+  ELSE
+  IF (T-BRAND-UPD-ERR) = "Y" THEN <<H37244>>
+  DO
+    MOVE (T-BRAND-UPD-ERR) = "N";
+    DISPLAY $TODAY
+           :$TIME
+           :"BRAND UPD ERROR, PAUSING FOR"
+           :T-DISP-SECS: " SECS"
+           ;
+    PERFORM 2600-REWRITE-ODONLIPC-REC;
+  DOEND
+  ELSE
+    IF (T-BAD-DATA) = "Y" THEN
+    DO
+      MOVE (T-BAD-DATA) = "N";
+      DISPLAY $TODAY
+             :$TIME
+             :"BAD DATA, PAUSING FOR"
+             :T-DISP-SECS: " SECS"
+             ;
+      MOVE (G-IPARANAME) = "2010-PROCESS-ODONLIPC-REC";
+      MOVE (G-IERRMSG) = "BAD DATA.  Transaction skipped."
+                       + SPACE("See stdlist for",1)
+                       + SPACE("details.",1);
+      PERFORM SEND-ERROR-EMAIL;
+    DOEND
+    ELSE
+      IF (T-NO-RESPONSE) = "Y" THEN
+      DO
+        MOVE (T-NO-RESPONSE)  = "N";
+        DISPLAY $TODAY
+               :$TIME
+               :"NO RESPONSE, PAUSING FOR"
+               :T-DISP-SECS: " SECS"
+               ;
+        PERFORM 2600-REWRITE-ODONLIPC-REC;
+      DOEND
+      ELSE
+        IF (T-UNEXPECTED) = "Y" THEN
+        DO
+          MOVE (T-UNEXPECTED)  = "N";
+          DISPLAY $TODAY
+                 :$TIME
+                 :"UNEXPECTED ERR, PAUSING FOR"
+                 :T-DISP-SECS: " SECS"
+                 ;
+         PERFORM 2600-REWRITE-ODONLIPC-REC;
+        DOEND;
+
+
+  IF (T-NO-ATTEMPTS) > 5 THEN
+  DO
+    MOVE (G-IPARANAME) = "2010-PROCESS-ODONLIPC-REC";
+    MOVE (G-IERRMSG) = "More than 5 consecutive errors"
+                     + SPACE("encountered. See stdlist for",1)
+                     + SPACE("details.",1);
+    PERFORM SEND-ERROR-EMAIL;
+  DOEND;
+
+  IF (T-PAUSE-SECS) > 0 THEN
+  DO
+    PROC PAUSE((T-PAUSE-SECS));
+  DOEND;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2020-INTERPRET-ODONLIPC:
+<<-------------------------------------------------------------------->>
+  MOVE (G-IPARANAME) = "2020-INTERPRET-ODONLIPC";
+
+  DISPLAY $TODAY
+         :$TIME
+         :"Received IPC-REC:"
+         :IPC-REC
+         ;
+
+  MOVE (T-INQ-TYPE-IND) = (C-IPC-UPD-TYPE); <<24092>>
+
+  IF (C-IPC-UPD-TYPE) = "AR","AS" THEN << 8166 >>
+  DO
+    PERFORM 2020-100-INTERPRET-ROS-TRANS;
+  DOEND
+  ELSE
+  DO
+    IF (C-IPC-UPD-TYPE) = "AX" THEN << H17754 >>
+      DO
+        PERFORM 2020-200-INTERPRET-DV-TRANS;
+      DOEND
+    ELSE
+      DO
+        IF (C-IPC-UPD-TYPE) = "AF" THEN << H31106 >>
+          DO
+            PERFORM 2020-300-INTERPRET-AF-TRANS;
+          DOEND
+        ELSE
+          DO
+            IF (C-IPC-UPD-TYPE) = "VA" THEN << H54724>>
+              DO
+                PERFORM 2020-400-INTERPRET-CHG-RO-ADDR;
+              DOEND
+            ELSE                            << H54724 >>
+              DO
+                IF (IPC-REC) = " " THEN
+                  DO
+                    DISPLAY $TODAY
+                           :$TIME
+                           :"ODONLIPC Record was blank"
+                           :"*** IGNORED ***"
+                           ;
+                  DOEND
+                ELSE
+                  DO
+                    DISPLAY $TODAY
+                           :$TIME
+                           :"ODONLIPC Record contains unexpected"
+                           :"data - IGNORED"
+                           ;
+                    MOVE (G-IERRMSG) = "Invalid transaction type"
+                                     + SPACE("- SKIPPED",1);
+                    PERFORM SEND-ERROR-EMAIL;
+                  DOEND;
+              DOEND;
+          DOEND;
+      DOEND;
+  DOEND;
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2020-100-INTERPRET-ROS-TRANS:                                 << 7888 >>
+<<-------------------------------------------------------------------->>
+
+  MOVE (G-IPARANAME) = "2020-100-INTERPRET-ROS-TRANS";
+  MOVE (T-SOAP-ACTION) = "Call-MMDROS";  <<24092>>
+  MOVE (TRAN-KEY)    = (C-IPC-KEY);
+  SET(KEY) LIST(TRAN-KEY);
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-RPT-SALE"
+                   + SPACE("record - ABORTING",1);
+  FIND M-RPT-SALE
+      ,LIST  = (PLATE,FINAL-OPR,ROS-DATE,ROS-FLAG,ROS-NUMBER
+               ,TRAN-DATE-L,CUR-TIME,UPDATE-STATUS,OPERATOR3) <<H57782>>
+      ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)        << 7842 >>
+            ;
+  IF STATUS < 1 THEN
+  DO
+    DISPLAY $TODAY
+           :$TIME
+           :"!!! transaction was not found - skipped !!!"
+           ;
+    MOVE (G-IERRMSG) = "Transaction was not found in data"
+                     + "base - SKIPPED";
+    PERFORM SEND-ERROR-EMAIL;
+    RETURN;
+  DOEND;
+
+  MOVE (T-KEY-FOR-EMAIL) = "Plate: (" + (PLATE) + ")";
+
+  IF (UPDATE-STATUS) = "U" THEN
+  DO
+    << When Update Status is equal to 'U' this       >>
+    << signifies, that the transaction was already   >>
+    << transmitted to the UNISYS and shows as already>>
+    << updated.  Send an email and skip to the next  >>
+    << transaction in the IPC file.                  >>
+    DISPLAY $TODAY
+           :$TIME
+           :"!!! attempt to update twice - skipped !!!"
+           ;
+    MOVE (G-IERRMSG) = "Attempted to update transaction twice"
+                     + SPACE("- SKIPPED",1);
+    PERFORM SEND-ERROR-EMAIL;
+    RETURN;
+  DOEND;
+
+  << ok we found and read a transaction >>
+  << now build the update message       >>
+  PERFORM 2030-FORMAT-ROS-REQUEST;
+  PERFORM 2050-REQUEST-PORT;                 << 7842 >>
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2020-200-INTERPRET-DV-TRANS:                                 << 7888 >>
+<<-------------------------------------------------------------------->>
+
+  MOVE (G-IPARANAME) = "2020-200-INTERPRET-DV-TRANS";
+  MOVE (T-SOAP-ACTION) = "Call-MMDEST";  <<24092>>
+  MOVE (DESTROYED-KEY)    = (C-IPC-KEY);
+  SET(KEY) LIST(DESTROYED-KEY);
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-DESTROYED-VEH"
+                   + SPACE("record - ABORTING",1);
+  FIND M-DESTROYED-VEH
+      ,LIST  = (DV-TRAN-DATE
+               ,DV-TRAN-TIME
+               ,ONLINE-UPDT-IND
+               ,DEST-TRAN-CODE
+               ,PLATE
+               ,VIN
+               ,REBUILT-IND
+               ,DESTROYED-DATE
+               ,DEALER)
+      ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+            ;
+  IF STATUS < 1 THEN
+  DO
+    DISPLAY $TODAY
+           :$TIME
+           :"!!! transaction was not found - skipped !!!"
+           ;
+    MOVE (G-IERRMSG) = "Transaction was not found in data"
+                     + "base - SKIPPED";
+    PERFORM SEND-ERROR-EMAIL;
+    RETURN;
+  DOEND;
+
+  MOVE (T-KEY-FOR-EMAIL) = "Plate: (" + (PLATE) + ")";
+
+  IF (ONLINE-UPDT-IND) = 1 THEN
+  DO
+    << When ONLINE-UPDT-IND is equal to 1 this       >>
+    << signifies, that the transaction was already   >>
+    << transmitted to the UNISYS and shows as already>>
+    << updated.  Send an email and skip to the next  >>
+    << transaction in the IPC file.                  >>
+    DISPLAY $TODAY
+           :$TIME
+           :"!!! attempt to update twice - skipped !!!"
+           ;
+    MOVE (G-IERRMSG) = "Attempted to update transaction twice"
+                     + SPACE("- SKIPPED",1);
+    PERFORM SEND-ERROR-EMAIL;
+    RETURN;
+  DOEND;
+
+  << ok we found and read a transaction >>
+  << now build the update message       >>
+  PERFORM 2032-FORMAT-DV-REQUEST;
+  PERFORM 2050-REQUEST-PORT;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2020-300-INTERPRET-AF-TRANS:
+<<-------------------------------------------------------------------->>
+
+  MOVE (G-IPARANAME) = "2020-300-INTERPRET-AF-TRANS";
+  MOVE (T-SOAP-ACTION) = "Call-MMDROS";  <<24092>>
+  MOVE (AOS-KEY)     = (C-IPC-KEY);
+  SET(KEY) LIST(AOS-KEY);
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-AFFIDAVIT-SALE"
+                   + SPACE("record - ABORTING",1);
+  FIND M-AFFIDAVIT-SALE(INRGDB)
+      ,LIST  = (AOS-TRAN-TYPE
+               ,AOS-TRAN-DATE
+               ,AOS-TRAN-TIME
+               ,ONLINE-UPDT-IND
+               ,PLATE
+               ,AOS-DATE
+               ,AOS-FLAG
+               ,AOS-NUMBER)
+      ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+            ;
+  IF STATUS < 1 THEN
+  DO
+    DISPLAY $TODAY
+           :$TIME
+           :"!!! transaction was not found - skipped !!!"
+           ;
+    MOVE (G-IERRMSG) = "Transaction was not found in data"
+                     + "base - SKIPPED";
+    PERFORM SEND-ERROR-EMAIL;
+    RETURN;
+  DOEND;
+
+  MOVE (T-KEY-FOR-EMAIL) = "Plate: (" + (PLATE) + ")";
+
+  IF (ONLINE-UPDT-IND) = 1 THEN
+  DO
+    << When ONLINE-UPDT-IND is equal to 1 this       >>
+    << signifies, that the transaction was already   >>
+    << transmitted to the UNISYS and shows as already>>
+    << updated.  Send an email and skip to the next  >>
+    << transaction in the IPC file.                  >>
+    DISPLAY $TODAY
+           :$TIME
+           :"!!! attempt to update twice - skipped !!!"
+           ;
+    MOVE (G-IERRMSG) = "Attempted to update transaction twice"
+                     + SPACE("- SKIPPED",1);
+    PERFORM SEND-ERROR-EMAIL;
+    RETURN;
+  DOEND;
+
+  << ok we found and read a transaction >>
+  << now build the update message       >>
+  PERFORM 2034-FORMAT-AOS-REQUEST;
+  PERFORM 2050-REQUEST-PORT;
+
+RETURN;
+
+!PAGE                                              << H54724 >>
+<<-------------------------------------------------------------------->>
+2020-400-INTERPRET-CHG-RO-ADDR:                             << H54724 >>
+<<-------------------------------------------------------------------->>
+
+  MOVE (G-IPARANAME)   = "2020-400-INTERPRET-CHG-RO-ADDR";
+  MOVE (T-SOAP-ACTION) = "Call-MMZADU";
+  MOVE (TRAN-KEY)      = (C-IPC-KEY);
+
+  SET(KEY) LIST(TRAN-KEY);
+
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving D-ADDR-CHANGE"
+                   + SPACE("Record - ABORTING!",1);
+
+ FIND(CHAIN) D-ADDR-CHANGE
+     ,LIST=(PLATE,
+            FLEET-KEY,
+            STATUS-FLAG,
+            EQUIP-NO,
+            USE,
+            RO-NM-ADDR1,
+            RO-NM-ADDR2,
+            RO-NM-ADDR3,
+            RO-NM-ADDR4,
+            RO-NM-ADDR5,
+            RO-NM-ADDR6,
+            RO-CITY,
+            RO-STATE,
+            RO-ZIP,
+            RO-ZIP-4,
+            NO-REG-NAME,
+            RTA-ZONE-CODE,
+            RTA-STATUS,
+            SPMA-JURIS,
+            SPMA-STATUS,
+            LEGAL-RES-CNTY,
+            ADDR-FLAGS,
+            TRAN-DATE-L,
+            CUR-TIME,
+            TRAN-CODE,
+            OPT-MAIL-ADDR1,
+            OPT-MAIL-ADDR2,
+            OPT-MAIL-CITY,
+            OPT-MAIL-STATE,
+            OPT-MAIL-ZIP,
+            OPT-MAIL-PLUS4,
+            POWER,
+            SCALE-WT,
+            TAX-CODE,
+            SPEC-PLATE,
+            PLT-FLAGS,
+            UPDATE-STATUS,
+            TRAN-KEY,
+            BATCH,
+            MODEL-YR-VH,
+            MAKE,
+            SER-BODY,
+            VIN,
+            ADD-NAME-FLAG)
+     ,ERROR=9004-NB-FATAL-IMAGE(*)
+     ;
+
+ IF STATUS < 1 THEN
+   DO
+     DISPLAY $TODAY
+            :$TIME
+            :"!!! Transaction was not found - Skipped!!!"
+            ;
+     MOVE (G-IERRMSG) = "Transaction was not found in Data"
+                      + "base - SKIPPED!";
+     PERFORM SEND-ERROR-EMAIL;
+     RETURN;
+   DOEND;
+
+ MOVE (T-KEY-FOR-EMAIL) = "PLATE:  (" + (PLATE) + ")";
+
+ IF (UPDATE-STATUS) = "U" THEN
+   DO
+     DISPLAY $TODAY
+            :$TIME
+            :"!!! Attempt to update twice skipped !!!"
+            ;
+     MOVE (G-IERRMSG) = "Attempted to update transaction twice"
+                      + SPACE("- SKIPPED",1);
+     PERFORM SEND-ERROR-EMAIL;
+     RETURN;
+   DOEND;
+
+ PERFORM 2036-FORMAT-CHG-RO-ADDR-REQ;
+ PERFORM 2050-REQUEST-PORT;
+
+RETURN;
+
+!PAGE
+<<-------------------------------------------------------------------->>
+2050-REQUEST-PORT:                               << 7842 >>
+<<-------------------------------------------------------------------->>
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering 2050-REQUEST-PORT"
+             :"at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  IF (G-SNANODE) = " " THEN
+  DO
+    PERFORM 2050-DETERMINE-ENVIRONMENT;        <<21124>>
+  DOEND;
+
+  PERFORM DETERMINE-PROTOCOL;                <<24092>>
+  PERFORM 2299-SET-L-UPD-STRING;                       <<21124>>
+  PERFORM 2400-TRANSMIT-TRANSACTION;                   <<21124>>
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2050-DETERMINE-ENVIRONMENT:  <<21124>>
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering 2050-DETERMINE-ENVIRONMENT"
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  LIST
+    T-VARS:
+    T-CIVAR-NAME:
+    T-CIVAR-STATUS:
+    T-CIVAR-KWORD:
+    T-CIVAR-XKEYVAL        ,INIT:
+    T-CIVAR-NKEYVAL        ,INIT:
+    T-VITEMNUM2            ,INIT:
+    T-VITEMNUM11           ,INIT:
+    T-VITEMNUM14           ,INIT:
+    T-VITEM2               ,INIT:
+    T-VITEM11              ,INIT:
+    T-VITEM14              ,INIT:
+    T-CIVAR-STAT-D         ,INIT:
+    T-COMMAND:
+    PARM:
+    ERROR:
+    T-MSG-LEVEL:
+    T-CR'INT
+    ;
+
+  MOVE (T-COMMAND) = "XEQ HANDLRX '"
+     + (C-G-TS-HOST-DEV) + "','"
+     + "000000" + "','"
+     + "DONLUP" + "'";
+
+  PERFORM 8888-ISSUE-MPE-COMMAND;
+
+  LET (T-VITEMNUM2) = 2;
+  LET (T-VITEMNUM11) = 11;
+  LET (T-VITEMNUM14) = 14;
+  LET (T-VITEM11) = 255;
+
+  MOVE (T-CIVAR-NAME)  = "HANDLRTYPE";
+  LET  (T-CIVAR-KWORD) = 2;
+  PERFORM 8888-HPCIGETVAR;
+
+  IF (T-CIVAR-STATUS) = 0 THEN
+  DO
+    MOVE (C-G-SNAND-ENV) = (T-VITEM2);
+  DOEND
+  ELSE
+  DO
+    MOVE (C-G-SNAND-ENV) = " ";
+  DOEND;
+
+  IF (C-G-SNAND-ENV) = "T" THEN
+  DO
+    LET (C-G-SNACL-VCD) = 0;
+    LET (C-G-SNAND-VCD) = 0;
+  DOEND;
+
+  MOVE (T-CIVAR-NAME)  = "DTLNET_HTTP_HOST";
+  LET  (T-CIVAR-KWORD) = 2;
+  PERFORM 8888-HPCIGETVAR;
+
+  IF (T-CIVAR-STATUS) = 0 THEN
+  DO
+    MOVE (T-HTTP-HOST) = (T-VITEM2);
+  DOEND
+  ELSE
+  DO
+    MOVE (T-HTTP-HOST) = " ";
+  DOEND;
+
+  IF (T-INQ-TRACE) = "Y" THEN                  <<21124>>
+  DO                                           <<21124>>
+    DISPLAY "Handlr: C-G-SNAND-ENV: ": C-G-SNAND-ENV;  <<21124>>
+    DISPLAY "Handlr: G-SNANODE: ": G-SNANODE;  <<21124>>
+  DOEND;                                       <<21124>>
+
+
+  SET(STACK) LIST(T-VARS);
+  SET(STACK) LIST(*);
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 2050-DETERMINE-ENVIRONMENT:                                 >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+2299-SET-L-UPD-STRING:                                  <<21124>>
+<<-------------------------------------------------------------------->>
+
+  IF (C-IPC-UPD-TYPE) = "AR","AS" THEN  << vehicle ROS >>
+    DO
+      << As long as the current record is for Report >>
+      << of Sale set the update message and transmit.>>
+      PERFORM 2030-FORMAT-ROS-REQUEST;
+      DISPLAY $TODAY
+             :$TIME
+             :"Transmitting Report of Sale:"
+             :L-UPD-STRING,LINE
+             ;
+    DOEND
+  ELSE
+    DO       << H17754 >>
+      IF (C-IPC-UPD-TYPE) = "AX" THEN << destroyed vehicle >>
+        DO
+          PERFORM 2032-FORMAT-DV-REQUEST;
+          DISPLAY $TODAY
+                 :$TIME
+                 :"Transmitting Destroyed Vehicle:"
+                 :L-UPD-STRING,LINE
+                 ;
+        DOEND
+      ELSE
+        DO   << H31106 >>
+
+          IF (C-IPC-UPD-TYPE) = "AF" THEN << Affidavit of Sale >>
+            DO
+              PERFORM 2034-FORMAT-AOS-REQUEST;
+              DISPLAY $TODAY
+                     :$TIME
+                     :"Transmitting Affidavit of Sale:"
+                     :L-UPD-STRING,LINE
+                     ;
+            DOEND                                  << H54724 >>
+          ELSE
+            DO
+              IF (C-IPC-UPD-TYPE) = "VA" THEN << Chg R/O Address >>
+                DO
+                  PERFORM 2036-FORMAT-CHG-RO-ADDR-REQ;
+                  DISPLAY $TODAY
+                         :$TIME
+                         :"Transmitting Change R/O Address"
+                         :T-CHG-ADDR-UPD,LINE
+                         ;
+                DOEND;
+            DOEND;                                 << H54724 >>
+        DOEND;
+    DOEND;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 2299-SET-L-UPD-STRING:                                      >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+2030-FORMAT-ROS-REQUEST:
+<<-------------------------------------------------------------------->>
+
+  MOVE (L-UPD-STRING)   = " ";
+  MOVE (C-L-UPD-SOE)     = ">";
+  MOVE (C-L-UPD-TIP-1)   = "M";
+  MOVE (C-L-UPD-TIP-2)   = (C-G-TS-VEH-UPD);
+  MOVE (C-L-UPD-TIP-3-4) = "RS";
+  MOVE (C-L-MROS-PLATE)  = (PLATE);
+  MOVE (C-L-MROS-TKEY)   = (TRAN-KEY);
+  LET  (C-L-MROS-OPR)    = (FINAL-OPR);
+  LET  (C-L-MROS-DATE)   = (ROS-DATE);
+  MOVE (C-L-MROS-FLAG)   = (ROS-FLAG);
+  LET  (C-L-MROS-NO)     = (ROS-NUMBER);
+  LET  (C-L-MROS-TRDT)   = (TRAN-DATE-L);
+  LET  (C-L-MROS-TIME)   = (CUR-TIME);
+  LET  (C-L-OPERATOR3)   = (C-OPERATOR3); << Heat 57782 >>
+  LET  (L-UPD-LENGTH)   = 64;             << Heat 57782 >>
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2032-FORMAT-DV-REQUEST:
+<<-------------------------------------------------------------------->>
+
+  MOVE (L-UPD-STRING)   = " ";
+  MOVE (C-L-UPD-SOE)     = ">";
+  MOVE (C-L-UPD-TIP-1)   = "M";
+  MOVE (C-L-UPD-TIP-2)   = (C-G-TS-VEH-UPD);
+  MOVE (C-L-UPD-TIP-3-6) = "DEST";
+  << covert date from CCYYMMDD to CCYYDDD >>
+  LIST L-CCYYDDD  ,INIT
+      :L-CCYYMMDD ,INIT
+      :L-MSGNUM   ,INIT
+      ;
+
+  LET (L-CCYYMMDD) = (DV-TRAN-DATE);
+
+  CALL DTOJUL,DATA=L-CCYYDDD;
+
+  LET  (C-L-DEST-TRDT)   = (L-CCYYDDD);
+
+  SET(STACK) LIST(L-CCYYDDD);
+  SET(STACK) LIST(*);
+  << end conversion >>
+  LET  (C-L-DEST-TIME)   = (DV-TRAN-TIME);
+  MOVE (C-L-DEST-TRCD)   = (DEST-TRAN-CODE);
+  MOVE (C-L-DEST-PLATE)  = (PLATE);
+  MOVE (C-L-DEST-VIN)    = (VIN);
+  LET  (C-L-DEST-RBLT)   = (REBUILT-IND);
+  LET  (C-L-DEST-DSDT)   = (DESTROYED-DATE);
+  MOVE (C-L-DEST-DLR-NO) = (DEALER);
+  LET  (L-UPD-LENGTH)   = 61;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2034-FORMAT-AOS-REQUEST:               << H31106 >>
+<<-------------------------------------------------------------------->>
+
+  MOVE (L-UPD-STRING)   = " ";
+  MOVE (C-L-UPD-SOE)     = ">";
+  MOVE (C-L-UPD-TIP-1)   = "M";
+  MOVE (C-L-UPD-TIP-2)   = (C-G-TS-VEH-UPD);
+  MOVE (C-L-UPD-TIP-3-4) = "RS";
+  MOVE (C-L-MROS-PLATE)  = (PLATE);
+  MOVE (C-L-MROS-TKEY)   = (AOS-KEY);
+  LET  (C-L-MROS-OPR)    = 66;
+  LET  (C-L-MROS-DATE)   = (AOS-DATE);
+  MOVE (C-L-MROS-FLAG)   = (AOS-FLAG);
+  LET  (C-L-MROS-NO)     = (AOS-NUMBER);
+  LET  (C-L-MROS-TRDT)   = (AOS-TRAN-DATE);
+  LET  (C-L-MROS-TIME)   = (AOS-TRAN-TIME);
+  LET  (C-L-OPERATOR3)   = 666;           << Heat 57782 >>
+  LET  (L-UPD-LENGTH)    = 64;            << Heat 57782 >>
+
+RETURN;
+
+!PAGE                                                       << H54724 >>
+<<-------------------------------------------------------------------->>
+2036-FORMAT-CHG-RO-ADDR-REQ:                                << H54724 >>
+<<-------------------------------------------------------------------->>
+
+DISPLAY (NO-REG-NAME);
+DISPLAY (RO-NM-ADDR1);
+DISPLAY (RO-NM-ADDR2);
+DISPLAY (RO-NM-ADDR3);
+DISPLAY (RO-NM-ADDR4);
+DISPLAY (RO-NM-ADDR5);
+DISPLAY (RO-NM-ADDR6);
+
+
+  MOVE (T-CHG-ADDR-UPD)    = " ";
+ << MOVE (C-T-CHG-SOE)      = ">"; >>
+  MOVE (C-T-CHG-TIP-1)    = "M";
+  MOVE (C-T-CHG-TIP-2)    = (C-G-TS-VEH-UPD);
+  MOVE (C-T-CHG-TIP-3-6)  = "ZADU";
+
+  MOVE (C-T-CHG-PLATE)      = (PLATE);
+
+  IF (NO-REG-NAME) = 1 THEN
+    DO
+      MOVE (C-T-CHG-ADDR1)      = (RO-NM-ADDR2);
+      IF (RO-NM-ADDR3) <> " " THEN
+        DO
+          MOVE (C-T-CHG-ADDR2)  = (RO-NM-ADDR3);
+        DOEND;
+    DOEND
+  ELSE
+    DO
+      IF (NO-REG-NAME) = 2 THEN
+        DO
+          MOVE (C-T-CHG-ADDR1) = (RO-NM-ADDR3);
+          IF (RO-NM-ADDR4) <> " " THEN
+            DO
+              MOVE (C-T-CHG-ADDR2) = (RO-NM-ADDR4);
+            DOEND;
+        DOEND
+      ELSE
+        DO
+          IF (NO-REG-NAME) = 3 THEN
+            DO
+              MOVE (C-T-CHG-ADDR1) = (RO-NM-ADDR4);
+              IF (RO-NM-ADDR5) <> " " THEN
+                DO
+                  MOVE (C-T-CHG-ADDR2) = (RO-NM-ADDR5);
+                DOEND;
+            DOEND
+          ELSE
+            DO
+              IF (NO-REG-NAME) = 4 THEN
+                DO
+                  MOVE (C-T-CHG-ADDR1) = (RO-NM-ADDR5);
+                  IF (RO-NM-ADDR6) <> " " THEN
+                    DO
+                      MOVE (C-T-CHG-ADDR2) = (RO-NM-ADDR6);
+                    DOEND;
+                DOEND
+              ELSE
+                DO
+                  IF (NO-REG-NAME) = 5 THEN
+                    DO
+                      MOVE (C-T-CHG-ADDR1) = (RO-NM-ADDR6);
+                    DOEND;
+                DOEND;
+            DOEND;
+        DOEND;
+    DOEND;
+
+  MOVE (C-T-CHG-CITY)       = (RO-CITY);
+  MOVE (C-T-CHG-STATE)      = (RO-STATE);
+  MOVE (C-T-CHG-ZIP)        = (RO-ZIP);
+  MOVE (C-T-CHG-ZIP-4)      = (RO-ZIP-4);
+  MOVE (C-T-CHG-RTAZONE)    = (RTA-ZONE-CODE);
+  MOVE (C-T-CHG-RTA-STAT)   = (RTA-STATUS);
+  MOVE (C-T-CHG-SPMA-JUR)   = (SPMA-JURIS);
+  MOVE (C-T-CHG-SPMASTAT)   = (SPMA-STATUS);
+  MOVE (C-T-CHG-LRC)        = (LEGAL-RES-CNTY);
+  MOVE (C-T-CHG-ADDR-FLG)   = (C-RES-ADDR-VAL);
+
+  << Convert TRAN-DATE-L from CCYYMMDD to CCYYDDD >>
+  LIST L-CCYYDDD  , INIT
+      :L-CCYYMMDD , INIT
+      :L-MSGNUM   , INIT
+      ;
+  LET (L-CCYYMMDD) = (TRAN-DATE-L);
+
+  CALL DTOJUL,DATA=L-CCYYDDD;
+
+  LET  (C-T-CHG-LTRAN-DT)   = (L-CCYYDDD);
+  LET  (C-T-CHG-LTRAN-TM)   = (CUR-TIME);
+
+  SET(STACK) LIST(L-CCYYDDD);
+  SET(STACK) LIST(*);
+
+
+  << Tran Code is 47 for Chg R/O Address transactions >>
+  MOVE (C-T-CHG-LTRAN-CD)   = (TRAN-CODE);
+  MOVE (C-T-CHG-ADDROPT1)   = (OPT-MAIL-ADDR1);
+  MOVE (C-T-CHG-ADDROPT2)   = (OPT-MAIL-ADDR2);
+  MOVE (C-T-CHG-CITY-OPT)   = (OPT-MAIL-CITY);
+  MOVE (C-T-CHG-ST-OPT)     = (OPT-MAIL-STATE);
+  MOVE (C-T-CHG-ZIP-OPT)    = (OPT-MAIL-ZIP);
+
+  LET  (T-CHGRO-ADDR-LEN)   = 234;
+
+
+RETURN;
+
+!PAGE
+<<-------------------------------------------------------------------->>
+2400-TRANSMIT-TRANSACTION:                <<21124>>
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering 2400-TRANSMIT-TRANSACTION"
+             :" at ":$TODAY:$TIME;
+
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  MOVE (L-RESP-STRING) = " ";
+
+
+  IF (C-G-SNAND-ENV) = "T" THEN                <<21124>>
+    DO                                         <<21124>>
+      PERFORM 8888-CALL-DTLNET;                <<21124>>
+    DOEND;                                     <<21124>>
+
+  IF (TN-STATUS) = 0 THEN
+    DO                                         << H31106 >>
+
+      IF (C-IPC-UPD-TYPE) = "AR","AS","AF" THEN  << veh ROS & AOS >>
+        DO
+          PERFORM 2400-100-CHECK-RS-RESPONSE;
+        DOEND
+      ELSE
+        DO          << H17754 >>
+
+          IF (C-IPC-UPD-TYPE) = "AX" THEN  << destroyed vehicle >>
+            DO
+              PERFORM 2400-200-CHECK-DV-RESPONSE;
+            DOEND                                  << H54724 >>
+          ELSE
+            DO
+              IF (C-IPC-UPD-TYPE) = "VA" THEN << Chg R/O Address >>
+                DO
+                  PERFORM 2400-300-CHK-CHG-RO-ADDR-RESP;
+                DOEND;
+            DOEND;                                 << H54724 >>
+        DOEND;
+    DOEND
+  ELSE
+    DO
+      DISPLAY $TODAY
+             :$TIME
+             :"host failed to respond:"
+             :TN-STATUS
+             ;
+
+      MOVE (T-NO-RESPONSE) = "Y";
+      PERFORM 2410-ERROR-ROUTINE;                    <<21124>>
+    DOEND;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2400-100-CHECK-RS-RESPONSE:
+<<-------------------------------------------------------------------->>
+
+  DISPLAY $TODAY
+         :$TIME
+         :"Response from Host for"
+         :C-IPC-UPD-TYPE
+         :"Transaction:"
+         :L-RESP-STRING,LINE
+         ;
+
+  IF (C-L-RESP-RS00) = "RS00" THEN     << 7842 >>
+  DO
+    << Transaction was Successful >>
+    LET  (T-NO-ATTEMPTS)  =  0;
+    MOVE (T-TOA-ERR)      = "N";
+    MOVE (T-BAD-DATA)     = "N";
+    MOVE (T-NO-RESPONSE)  = "N";
+
+    IF (C-IPC-UPD-TYPE) = "AR","AS" THEN  << H31106 >>
+    DO
+      PERFORM 2500-101-UPDATE-RPT-SALE;
+    DOEND
+    ELSE
+    DO
+
+      IF (C-IPC-UPD-TYPE) = "AF" THEN
+      DO
+        PERFORM 2500-102-UPDATE-AOS;
+      DOEND;
+
+    DOEND;
+
+  DOEND
+  ELSE
+  DO
+
+    IF (C-L-RESP-RS00) = "RS01" THEN
+      DO
+      << Vehicle/TOA DB Error >>
+      MOVE (T-TOA-ERR)    = "Y";
+      DOEND
+    ELSE
+    DO
+
+    IF (C-L-RESP-RS00) = "RS02" THEN
+      DO
+        << Bad Data Transmitted >>
+        MOVE (T-BAD-DATA)   = "Y";
+      DOEND
+    ELSE
+      DO
+        << Unexpected Error response >>
+        MOVE (T-UNEXPECTED) = "Y";
+      DOEND;
+
+    DOEND;
+
+  DOEND;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2400-200-CHECK-DV-RESPONSE:
+<<-------------------------------------------------------------------->>
+  << interpret response >>
+  DISPLAY $TODAY
+         :$TIME
+         :"response from host:"
+         :L-RESP-STRING,LINE
+         ;
+
+  IF (C-L-RESP-DV00) = "DV00" THEN
+  DO
+    << Transaction was Successful >>
+    LET  (T-NO-ATTEMPTS)  =  0;
+    MOVE (T-TOA-ERR)      = "N";
+    MOVE (T-BAD-DATA)     = "N";
+    MOVE (T-BRAND-UPD-ERR) = "N"; <<H37244>>
+    MOVE (T-NO-RESPONSE)  = "N";
+    PERFORM 2500-200-UPDATE-DESTROYED;
+  DOEND
+  ELSE
+    IF (C-L-RESP-DV00) = "DV01", "DVA1", "DVB1", "DVC1", "DVD1",
+                         "DVE1", "DVF1", "DVG1", "DVH1", "DVI1",
+                         "DVJ1", "DVK1", "DVL1", "DVM1", "DVN1",
+                         "DVR1", "DVR2", "DVR3", "DVR4", "DVR5",
+                         "DVR6", "DVR7", "DVR8", "DVR9", "DVZ1",
+                         "DVZ2", "DVZ3", "DVZ4", "DVZ5" THEN
+    DO
+      << Vehicle/TOA DB Error >>
+      MOVE (T-TOA-ERR)    = "Y";
+    DOEND
+    ELSE
+    IF (C-L-RESP-DV00) = "DV02", "DVA2", "DVB2", "DVC2" THEN
+      DO
+        << Bad Data Transmitted >>
+        MOVE (T-BAD-DATA)   = "Y";
+      DOEND
+    ELSE
+      IF (C-L-RESP-DV00) = "DV03" THEN
+      DO
+        << Load Nmvtis BrandUpdate Errored  - H37244>>
+        MOVE (T-BRAND-UPD-ERR)   = "Y";
+      DOEND
+      ELSE
+      DO
+        << Unexpected Error response >>
+        MOVE (T-UNEXPECTED) = "Y";
+      DOEND;
+
+
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2400-300-CHK-CHG-RO-ADDR-RESP:                              << H54724 >>
+<<-------------------------------------------------------------------->>
+
+  << Interpret response >>                         << H54724 >>
+  DISPLAY $TODAY
+         :$TIME
+         :"Response from host:"
+         :L-RESP-STRING,LINE
+         ;
+
+  IF (C-L-RESP-DU00) = "DU00" THEN
+    DO
+      << Transaction updated successfully >>
+      LET  (T-NO-ATTEMPTS) = 0;
+      MOVE (T-TOA-ERR)     = "N";
+      MOVE (T-BAD-DATA)    = "N";
+      MOVE (T-NO-RESPONSE) = "N";
+      PERFORM 2500-300-UPDATE-D-ADDR-CHANGE;
+    DOEND
+  ELSE
+    DO
+      IF (C-L-RESP-DU00) = "DU01", "DU03", "DU04",
+                           "DU10", "DU11", "DU12" THEN
+        DO
+          << Database TOA Error... >>
+          MOVE (T-TOA-ERR) = "Y";
+        DOEND
+      ELSE
+        DO
+          IF (C-L-RESP-DU00) = "DU02", "DU05", "DU06", "DU08",
+                               "DU09", "DU14", "DU20", "DU15" THEN
+            DO
+              MOVE (T-BAD-DATA) = "Y";
+            DOEND
+          ELSE
+            DO
+              MOVE (T-UNEXPECTED) = "Y";
+            DOEND;
+        DOEND;
+    DOEND;
+
+RETURN;                                            << H54724 >>
+
+!PAGE
+<<-------------------------------------------------------------------->>
+2500-101-UPDATE-RPT-SALE:                            << 7842 >>
+<<-------------------------------------------------------------------->>
+
+<< After a successful Transmit and a successful  >>
+<< response back from the host it is time to -   >>
+<< update the M-RPT-SALE with an UPDATE-STATUS of>>
+<< 'U'. First re-read the record then recheck the>>
+<< UPDATE-STATUS. As long as the original record >>
+<< remains in tact and unchanged,Update the field>>
+
+  MOVE (G-IPARANAME) = "2500-101-UPDATE-RPT-SALE";
+
+  MOVE (TRAN-KEY)    = (C-IPC-KEY);
+  SET(KEY) LIST(TRAN-KEY);
+
+  MOVE (C-L-DB-DSET)    = "M-RPT-SALE";
+  MOVE (C-L-DB-DITEM)   = "TRAN-KEY";
+  MOVE (C-L-DB-RELOP)   = "=";
+  MOVE (C-L-DB-VALUE)   = (TRAN-KEY);
+  PERFORM 8516-NB-HOME-LOCK-ENT;
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-RPT-SALE"
+                   + SPACE("record for update - ABORTING",1);
+  FIND M-RPT-SALE
+      ,LIST  =(PLATE
+              ,FINAL-OPR
+              ,ROS-DATE
+              ,ROS-FLAG
+              ,ROS-NUMBER
+              ,TRAN-DATE-L
+              ,CUR-TIME
+              ,UPDATE-STATUS)
+
+      ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+      ;
+
+  IF STATUS < 1 THEN
+  DO
+    << Transaction was sent to unisys, but after     >>
+    << rereading the file no longer can find the -   >>
+    << transaction. send an email to support and     >>
+    << skip the update portion.                      >>
+    DISPLAY $TODAY
+           :$TIME
+           :"Transaction sent to UNISYS is missing!"
+           ;
+    MOVE (G-IERRMSG) = "FATAL ERROR - Record no longer found in"
+                     + SPACE("REGNDB - ABORTING",1);
+    PERFORM SEND-ERROR-EMAIL;
+    PERFORM 9004-NB-FATAL-IMAGE;
+    EXIT;
+  DOEND;
+
+  IF (UPDATE-STATUS) = "U" THEN
+  DO
+    << Transaction was sent to unisys, but     >>
+    << after rereading file the transaction -  >>
+    << appears to have already been updated to >>
+    << a status of 'U'. Send an email to supprt>>
+    << and skip the update portion.            >>
+    DISPLAY $TODAY
+           :$TIME
+           :"Transaction sent to UNISYS shows Updated in VFS!"
+           ;
+    MOVE (G-IERRMSG) = "Transaction message sent to Unisys,"
+                     + SPACE("already shows updated in REGNDB",1);
+    PERFORM SEND-ERROR-EMAIL;
+  DOEND
+  ELSE
+  DO
+
+    << Record was successfully re-read and is not    >>
+    << already updated so now update the status to   >>
+    << 'U' to complete this - transaction.           >>
+
+    MOVE (UPDATE-STATUS)  = "U";
+    MOVE (G-IERRMSG) = "FATAL ERROR - Updating M-RPT-SALE"
+                     + SPACE("- ABORTING",1);
+    UPDATE M-RPT-SALE
+          ,LIST  = (UPDATE-STATUS)
+          ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+          ;
+
+  DOEND;
+
+  PERFORM 8518-NB-HOME-UNLOCK-ALL;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2500-102-UPDATE-AOS:                       << H31106 >>
+<<-------------------------------------------------------------------->>
+
+<< After a successful Transmit and a successful  >>
+<< response back from the host it is time to -   >>
+<< update the M-AFFIDAVIT-SALE with an           >>
+<< ONLINE-UPDT-IND of 1.                         >>
+<< First re-read the record then recheck the     >>
+<< ONLINE-UPD-IND. As long as the original record >>
+<< remains in tact and unchanged,Update the field>>
+
+  MOVE (G-IPARANAME) = "2500-102-UPDATE-AOS";
+
+  MOVE (AOS-KEY)    = (C-IPC-KEY);
+  SET(KEY) LIST(AOS-KEY);
+
+  MOVE (C-L-DB-DSET)    = "M-AFFIDAVIT-SALE";
+  MOVE (C-L-DB-DITEM)   = "AOS-KEY";
+  MOVE (C-L-DB-RELOP)   = "=";
+  MOVE (C-L-DB-VALUE)   = (AOS-KEY);
+  PERFORM 8720-NB-INRGDB-LOCK-ENT;
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-AFFIDAVIT-SALE"
+                   + SPACE("record for update - ABORTING",1);
+
+  FIND M-AFFIDAVIT-SALE(INRGDB)
+      ,LIST  =(AOS-KEY
+              ,AOS-TRAN-TYPE
+              ,AOS-TRAN-DATE
+              ,AOS-TRAN-TIME
+              ,ONLINE-UPDT-IND
+              ,PLATE
+              ,AOS-DATE
+              ,AOS-FLAG
+              ,AOS-NUMBER)
+
+      ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+      ;
+
+  IF STATUS < 1 THEN
+  DO
+    << Transaction was sent to unisys, but after     >>
+    << rereading the file no longer can find the -   >>
+    << transaction. send an email to support and     >>
+    << skip the update portion.                      >>
+    DISPLAY $TODAY
+           :$TIME
+           :"Transaction sent to UNISYS is missing!"
+           ;
+    MOVE (G-IERRMSG) = "FATAL ERROR - Record no longer found in"
+                     + SPACE("REGNDB - ABORTING",1);
+    PERFORM SEND-ERROR-EMAIL;
+    PERFORM 9004-NB-FATAL-IMAGE;
+    EXIT;
+  DOEND;
+
+  IF (ONLINE-UPDT-IND) = 1 THEN
+  DO
+    << Transaction was sent to unisys, but     >>
+    << after rereading file the transaction -  >>
+    << appears to have already been updated to >>
+    << 1. Send an email to supprot and skip the>>
+    << update portion.                         >>
+    DISPLAY $TODAY
+           :$TIME
+           :"Transaction sent to UNISYS shows Updated in VFS!"
+           ;
+    MOVE (G-IERRMSG) = "Transaction message sent to Unisys,"
+                     + SPACE("already shows updated in REGNDB",1);
+    PERFORM SEND-ERROR-EMAIL;
+  DOEND
+  ELSE
+  DO
+
+    << Record was successfully re-read and is not    >>
+    << already updated so now update the status to   >>
+    << '1' to complete this - transaction.           >>
+
+    LET (ONLINE-UPDT-IND)  = 1;
+    MOVE (G-IERRMSG) = "FATAL ERROR - Updating M-AFFIDAVIT-SALE"
+                     + SPACE("- ABORTING",1);
+    UPDATE M-AFFIDAVIT-SALE(INRGDB)
+          ,LIST  = (ONLINE-UPDT-IND)
+          ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+          ;
+  DOEND;
+
+  PERFORM 8740-NB-INRGDB-UNLOCK-ALL;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2500-200-UPDATE-DESTROYED:                 << H17754 >>
+<<-------------------------------------------------------------------->>
+
+<< After a successful Transmit and a successful  >>
+<< response back from the host it is time to -   >>
+<< update the M-DETROYED-VEH with an             >>
+<< ONLINE-UPDT-IND of 1.                         >>
+<< First re-read the record then recheck the     >>
+<< ONLINE-UPD-IND. As long as the original record >>
+<< remains in tact and unchanged,Update the field>>
+
+  MOVE (G-IPARANAME) = "2500-200-UPDATE-DESTROYED";
+
+  MOVE (DESTROYED-KEY)    = (C-IPC-KEY);
+  SET(KEY) LIST(DESTROYED-KEY);
+
+  MOVE (C-L-DB-DSET)    = "M-DESTROYED-VEH";
+  MOVE (C-L-DB-DITEM)   = "DESTROYED-KEY";
+  MOVE (C-L-DB-RELOP)   = "=";
+  MOVE (C-L-DB-VALUE)   = (DESTROYED-KEY);
+  PERFORM 8516-NB-HOME-LOCK-ENT;
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-DESTROYED-VEH"
+                   + SPACE("record for update - ABORTING",1);
+
+  FIND M-DESTROYED-VEH
+      ,LIST  =(DV-TRAN-DATE
+              ,DV-TRAN-TIME
+              ,ONLINE-UPDT-IND
+              ,DEST-TRAN-CODE
+              ,PLATE
+              ,VIN
+              ,REBUILT-IND
+              ,DESTROYED-DATE
+              ,DEALER)
+
+      ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+      ;
+
+  IF STATUS < 1 THEN
+  DO
+    << Transaction was sent to unisys, but after     >>
+    << rereading the file no longer can find the -   >>
+    << transaction. send an email to support and     >>
+    << skip the update portion.                      >>
+    DISPLAY $TODAY
+           :$TIME
+           :"Transaction sent to UNISYS is missing!"
+           ;
+    MOVE (G-IERRMSG) = "FATAL ERROR - Record no longer found in"
+                     + SPACE("REGNDB - ABORTING",1);
+    PERFORM SEND-ERROR-EMAIL;
+    PERFORM 9004-NB-FATAL-IMAGE;
+    EXIT;
+  DOEND;
+
+  IF (ONLINE-UPDT-IND) = 1 THEN
+  DO
+    << Transaction was sent to unisys, but     >>
+    << after rereading file the transaction -  >>
+    << appears to have already been updated to >>
+    << a status of 'U'. Send an email to supprt>>
+    << and skip the update portion.            >>
+    DISPLAY $TODAY
+           :$TIME
+           :"Transaction sent to UNISYS shows Updated in VFS!"
+           ;
+    MOVE (G-IERRMSG) = "Transaction message sent to Unisys,"
+                     + SPACE("already shows updated in REGNDB",1);
+    PERFORM SEND-ERROR-EMAIL;
+  DOEND
+  ELSE
+  DO
+
+    << Record was successfully re-read and is not    >>
+    << already updated so now update the status to   >>
+    << '1' to complete this - transaction.           >>
+
+    LET (ONLINE-UPDT-IND)  = 1;
+    MOVE (G-IERRMSG) = "FATAL ERROR - Updating M-DESTROYED-VEH"
+                     + SPACE("- ABORTING",1);
+    UPDATE M-DESTROYED-VEH
+          ,LIST  = (ONLINE-UPDT-IND)
+          ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+          ;
+  DOEND;
+
+  PERFORM 8518-NB-HOME-UNLOCK-ALL;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2500-300-UPDATE-D-ADDR-CHANGE:                              << H54724 >>
+<<-------------------------------------------------------------------->>
+
+  MOVE (G-IPARANAME) = "2500-300-UPDATE-D-ADDR-CHANGE";
+  MOVE (TRAN-KEY)    = (C-IPC-KEY);
+
+  SET(KEY) LIST(TRAN-KEY);
+
+  MOVE (C-L-DB-DSET)  = "D-ADDR-CHANGE";
+  MOVE (C-L-DB-DITEM) = "TRAN-KEY";
+  MOVE (C-L-DB-RELOP) = "=";
+  MOVE (C-L-DB-VALUE) = (TRAN-KEY);
+  PERFORM 8516-NB-HOME-LOCK-ENT;
+
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving D-ADDR-CHANGE"
+                   + SPACE("record for update",1);
+
+  FIND(CHAIN) D-ADDR-CHANGE
+      ,LIST=(PLATE,
+             FLEET-KEY,
+             STATUS-FLAG,
+             EQUIP-NO,
+             USE,
+             RO-NM-ADDR1,
+             RO-NM-ADDR2,
+             RO-NM-ADDR3,
+             RO-NM-ADDR4,
+             RO-NM-ADDR5,
+             RO-NM-ADDR6,
+             RO-CITY,
+             RO-STATE,
+             RO-ZIP,
+             RO-ZIP-4,
+             NO-REG-NAME,
+             RTA-ZONE-CODE,
+             RTA-STATUS,
+             SPMA-JURIS,
+             SPMA-STATUS,
+             LEGAL-RES-CNTY,
+             ADDR-FLAGS,
+             TRAN-DATE-L,
+             CUR-TIME,
+             TRAN-CODE,
+             OPT-MAIL-ADDR1,
+             OPT-MAIL-ADDR2,
+             OPT-MAIL-CITY,
+             OPT-MAIL-STATE,
+             OPT-MAIL-ZIP,
+             OPT-MAIL-PLUS4,
+             POWER,
+             SCALE-WT,
+             TAX-CODE,
+             SPEC-PLATE,
+             PLT-FLAGS,
+             UPDATE-STATUS,
+             TRAN-KEY,
+             BATCH,
+             MODEL-YR-VH,
+             MAKE,
+             SER-BODY,
+             VIN,
+             ADD-NAME-FLAG,
+             RO-ADDR-CNT)
+      ,ERROR= 9004-NB-FATAL-IMAGE(*)
+      ;
+
+  IF STATUS < 1 THEN
+    DO
+      DISPLAY $TODAY
+             :$TIME
+             :"Transaction sent to VHS is missing"
+             ;
+
+      MOVE (G-IERRMSG) = "FATAL ERROR - Record no longer found in"
+                       + SPACE("REGNDB - ABORTING",1);
+      PERFORM SEND-ERROR-EMAIL;
+      PERFORM 9004-NB-FATAL-IMAGE;
+      EXIT;
+    DOEND;
+
+  IF (UPDATE-STATUS) = "U" THEN
+    DO
+      DISPLAY $TODAY
+             :$TIME
+             :"Transaction message sent to VHS shows Updated in VFS!"
+             ;
+
+      MOVE (G-IERRMSG) = "Transaction message sent to VHS,"
+                       + SPACE("already shows Updated in REGNDB",1);
+      PERFORM SEND-ERROR-EMAIL;
+    DOEND
+  ELSE
+    DO
+      MOVE (UPDATE-STATUS) = "U";
+
+      MOVE (G-IERRMSG) = "FATAL ERROR - Updating D-ADDR-CHANGE"
+                       + SPACE("- ABORTING!",1);
+
+      UPDATE D-ADDR-CHANGE
+            ,LIST=(UPDATE-STATUS)
+            ,ERROR=8400-NB-FATAL-IMAGE-ERROR(*)
+            ;
+    DOEND;
+
+  PERFORM 8518-NB-HOME-UNLOCK-ALL;
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+2600-REWRITE-ODONLIPC-REC:                       << 7842 >>
+<<-------------------------------------------------------------------->>
+
+<< When an error condition occurs, need to write the record back >>
+<< to the ODONLIPC File, so that it will still be processed, when >>
+<< error condition is resolved. Prevents loosing Transactions.   >>
+
+  MOVE (G-IPARANAME) = "2600-REWRITE-ODONLIPC-REC";
+
+  PUT WDONLIPC
+     ,LIST=(IPC-REC)
+     ,STATUS
+     ;
+
+  IF STATUS <> 0 THEN
+  DO
+    DISPLAY $TODAY
+            :$TIME
+            :"FATAL ERROR - Writing transaction back to ODONLIPC File"
+            :"- ABORTING"
+            ;
+    MOVE (G-IERRMSG) = "FATAL ERROR - Writing to ODONLIPC File"
+                     + SPACE("- ABORTING",1);
+    PERFORM SEND-ERROR-EMAIL;
+    LET  (NB-ERROR-STATUS) = STATUS;
+    MOVE (NB-ERROR-REMARK) = "ERROR ON REWRITE TO ODONLIPC FILE";
+    PERFORM 9005-NB-FATAL-NONIMAGE;
+  DOEND;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 2600-REWRITE-ODONLIPC-REC:                                   >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+3000-END-DONLUP:
+<<-------------------------------------------------------------------->>
+
+  IF (C-G-SNAND-ENV) = "T" THEN                    <<21124>>
+  DO                                               <<21124>>
+
+    IF (C-G-SNACL-VCD) <> 0 THEN
+    DO
+      LET (VC-DESCRIPTOR) = (C-G-SNACL-VCD);
+      PERFORM 8888-DISCONNECT;
+    DOEND;
+
+    IF (C-G-SNAND-VCD) <> 0 THEN
+    DO
+      LET (VC-DESCRIPTOR) = (C-G-SNAND-VCD);
+      PERFORM 8888-DISCONNECT;
+    DOEND;
+
+  DOEND;                                           <<21124>>
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 3000-END-DINTUP:                                            >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+2410-ERROR-ROUTINE:
+<<-------------------------------------------------------------------->>
+
+  DISPLAY "L-RESP-STRING = ":L-RESP-STRING;  << H54724 >>
+
+  PERFORM 7400-SET-HOST-DOWN;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 2410-ERROR-ROUTINE:                                         >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+7400-SET-HOST-DOWN:
+<<-------------------------------------------------------------------->>
+
+  DISPLAY $TODAY
+         :$TIME
+         :"Host Down condition returned from 7400-SET-HOST-DOWN"
+         :"L-RESP-STRING = ":L-RESP-STRING      << H54724 >>
+         ;
+  MOVE (C-T-PO-SNAERR)  = "ATTN***";
+  MOVE (C-T-PO-FAILED)  = " CAUSE HOST DOWN ";
+  MOVE (C-T-PO-INTR)    = " ";
+  LET (C-T-PO-STATUS)   = 0;
+  MOVE (C-T-ERR-PARA) = (G-IPARANAME);
+  PERFORM 7800-PRINTOP;
+  MOVE (C-T-PO-SNAERR)  = "SNAERR-";
+  MOVE (C-T-PO-FAILED)  = " FAILED. STATUS=";
+  MOVE (L-RESP-STRING) = "*-2 - HOST DOWN";
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 7400-SET-HOST-DOWN:                                         >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+7800-PRINTOP:
+<<-------------------------------------------------------------------->>
+
+  PROC PRINTOP((T-PRINTOP-MSG),#(T-MSG-LENGTH),#(T-PRINTOP-CTRL));
+
+  << Added a call to PRINT so that same message that is being>>
+  << sent to the Operator will also display on the STDLIST.  >>
+
+  PROC PRINT((T-PRINTOP-MSG),#(T-MSG-LENGTH),#(T-PRINTOP-CTRL));
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 7800-PRINTOP:                                               >>
+<<-------------------------------------------------------------------->>
+
+!PAGE
+<<------------------------------------------------------------------->>
+8300-GET-SCANNER-STATUS:
+<<------------------------------------------------------------------->>
+
+  MOVE (G-IPARANAME) = "8300-GET-SCANNER-STATUS";
+
+  LET (T-SCAN-STAT) = 0;
+
+  MOVE (CONTROL-KEY) = "C";
+  MOVE (C-L-DB-DSET) = "M-SCAN-CONTROL";
+  MOVE (C-L-DB-DITEM) = "CONTROL-KEY";
+  MOVE (C-L-DB-RELOP) = "=";
+  MOVE (C-L-DB-VALUE) = (CONTROL-KEY);
+  PERFORM 8516-NB-HOME-LOCK-ENT;
+
+  SET(KEY) LIST(CONTROL-KEY);
+  MOVE (G-IERRMSG) = "FATAL ERROR - Retrieving M-SCAN-CONTROL record - "
+                   + SPACE("ABORTING",1);
+  GET M-SCAN-CONTROL
+     ,LIST  = (CONTROL-KEY:STOP-UPD-CNT)
+     ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+     ;
+
+  IF (SCAN-STOP-SW) = 1 THEN
+  DO
+    LET (T-SCAN-STAT) = 1;
+    DISPLAY $TODAY
+           :$TIME
+           :"*** GOT STOP SWITCH ***"
+           ;
+    MOVE (T-BRAKES) = "Y";
+  DOEND
+  ELSE
+  DO
+
+    IF (STOP-UPD-CNT) > 0 THEN
+    DO
+      DISPLAY $TODAY
+             :$TIME
+             :"**** Stop Update Command Issued! ****"
+             :"Setting Stop Switch ****"
+             ;
+      LET (T-SCAN-STAT) = 2;
+      LET (STOP-UPD-CNT) = (STOP-UPD-CNT) - 1;
+      MOVE (G-IERRMSG) = "FATAL ERROR - Updating M-SCAN-CONTROL"
+                       + SPACE("record - ABORTING",1);
+      UPDATE M-SCAN-CONTROL
+            ,LIST  = (STOP-UPD-CNT)
+            ,ERROR = 8400-NB-FATAL-IMAGE-ERROR(*)
+            ;
+      MOVE (T-BRAKES) = "Y";
+    DOEND;
+
+  DOEND;
+
+  PERFORM 8518-NB-HOME-UNLOCK-ALL;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 8300-GET-SCANNER-STATUS:                                    >>
+<<-------------------------------------------------------------------->>
+
+!PAGE
+<<-------------------------------------------------------------------->>
+8400-NB-FATAL-IMAGE-ERROR:
+<<-------------------------------------------------------------------->>
+  DISPLAY $TODAY
+          :$TIME
+          :G-IERRMSG
+          ;
+  PERFORM SEND-ERROR-EMAIL;
+  PERFORM 9004-NB-FATAL-IMAGE;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 8400-NB-FATAL-IMAGE-ERROR:                                  >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+8888-CALL-DTLNET: <<21124>>
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering 8888-CALL-DTLNET"
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  LET (TN-STATUS) = 0;
+  LET (OUTPUT-LENGTH) = 6;
+
+  IF (T-PROTOCOL-IND) = "HTTP" THEN           <<24092>>
+  DO                                          <<24092>>
+    LET (VC-DESCRIPTOR) = (C-G-SNACL-VCD);    <<24092>>
+  DOEND                                       <<24092>>
+  ELSE                                        <<24092>>
+  DO                                          <<24092>>
+    LET (VC-DESCRIPTOR) = (C-G-SNAND-VCD);    <<24092>>
+  DOEND;                                      <<24092>>
+
+  <<REMOVE ">" SOE CHAR FROM POSITION 1>>
+
+  IF (C-IPC-UPD-TYPE) = "VA" THEN                  << H54724 >>
+    DO
+      << LET  (INPUT-LENGTH) = (T-CHGRO-ADDR-LEN) - 1;
+      MOVE (T-CHG-ADDR-UPD) = STRING((T-CHG-ADDR-UPD),2,
+                              (INPUT-LENGTH));
+      LET  (INPUT-LENGTH)   = (T-CHGRO-ADDR-LEN);
+
+      IF (T-INQ-TRACE) = "Y" THEN
+        DO
+          DISPLAY "DONLUP: Calling DTLNET using T-CHG-ADDR-UPD":
+                  INPUT-LENGTH: OUTPUT-LENGTH;
+          DISPLAY T-CHG-ADDR-UPD;
+          DATA(SET) T-INQ-TRACE ("Continue");
+        DOEND;       >>
+
+       LET (INPUT-LENGTH) = (T-CHGRO-ADDR-LEN);
+
+      << Heat 54724 >>
+      << IF (T-DEBUG-SW) = "Y" THEN
+        DO
+          DISPLAY "DONLUP - Calling DTLNET using T-CHG-ADDR-UPD":
+                  INPUT-LENGTH: OUTPUT-LENGTH
+                 :" at ":$TODAY:" ":$TIME;
+          DISPLAY "T-CHG-ADDR-UPD = ":T-CHG-ADDR-UPD;
+          DISPLAY " ";
+          DISPLAY "VC-DESCRIPTOR = ":VC-DESCRIPTOR;
+          DISPLAY "T-CHG-ADDR-UPD = ":T-CHG-ADDR-UPD;
+          DISPLAY "INPUT-LENGTH = ":INPUT-LENGTH;
+          DISPLAY "L-RESP-STRING = ":L-RESP-STRING;
+          DISPLAY "OUTPUT-LENGTH = ":OUTPUT-LENGTH;
+          DISPLAY "TN-STATUS     = ":TN-STATUS;
+        DOEND;  >>
+      << Heat 54724 >>
+
+        IF (T-PROTOCOL-IND) = "HTTP"  AND
+           (T-HTTP-SOAP)   <> "None" THEN
+          DO
+            PROC DSOAP (CLANG(COBOL),
+                       (VC-DESCRIPTOR),
+                       (T-CHG-ADDR-UPD),
+                       (INPUT-LENGTH),
+                       (L-RESP-STRING),
+                       (OUTPUT-LENGTH),
+                       (TN-STATUS));
+          DOEND
+        ELSE
+          DO
+            PROC DTLNET (CLANG(COBOL),
+                        (VC-DESCRIPTOR),
+                        (T-CHG-ADDR-UPD),
+                        (INPUT-LENGTH),
+                        (L-RESP-STRING),
+                        (OUTPUT-LENGTH),
+                        (TN-STATUS));
+          DOEND;
+    DOEND
+  ELSE                                             << H54724 >>
+    DO
+      LET (INPUT-LENGTH) = (L-UPD-LENGTH) - 1;
+      MOVE (L-UPD-STRING) = STRING((L-UPD-STRING),2,(INPUT-LENGTH));
+      LET (INPUT-LENGTH) = (L-UPD-LENGTH);
+
+      IF (T-INQ-TRACE) = "Y" THEN
+        DO
+          DISPLAY "DONLUP: Calling DTLNET using L-UPD-STRING":
+                  INPUT-LENGTH: OUTPUT-LENGTH;
+          DISPLAY L-UPD-STRING;
+          DATA(SET) T-INQ-TRACE ("Continue");
+        DOEND;
+
+     << Heat 54724 >>
+     << IF (T-DEBUG-SW) = "Y" THEN
+        DO
+          DISPLAY "DONLUP: CAlling DTLNET using L-UPD-STRING":
+                  INPUT-LENGTH: OUTPUT-LENGTH:" at ":$TODAY:
+                  " ":$TIME;
+          DISPLAY " ";
+          DISPLAY "L-UPD-STRING = ":L-UPD-STRING;
+          DISPLAY " ";
+          DISPLAY "VC-DESCRIPTOR = ":VC-DESCRIPTOR;
+          DISPLAY "L-UPD-STRING  = ":L-UPD-STRING;
+          DISPLAY "INPUT-LENGTH  = ":INPUT-LENGTH;
+          DISPLAY "L-RESP-STRING = ":L-RESP-STRING;
+          DISPLAY "OUTPUT-LENGTH = ":OUTPUT-LENGTH;
+          DISPLAY "TN-STATUS     = ":TN-STATUS;
+          DISPLAY " ";
+        DOEND;                                  >>
+      << Heat 54724 >>
+
+      IF (T-PROTOCOL-IND) = "HTTP"          <<24092>>
+      AND (T-HTTP-SOAP) <> "None" THEN      <<24092>>
+        DO                                  <<24092>>
+          PROC DSOAP (CLANG(COBOL),         <<24092>>
+                     (VC-DESCRIPTOR),
+                     (L-UPD-STRING),
+                     (INPUT-LENGTH),
+                     (L-RESP-STRING),
+                     (OUTPUT-LENGTH),
+                     (TN-STATUS));
+        DOEND                               <<24092>>
+      ELSE                                  <<24092>>
+        DO                                  <<24092>>
+          PROC DTLNET (CLANG(COBOL),
+                      (VC-DESCRIPTOR),
+                      (L-UPD-STRING),
+                      (INPUT-LENGTH),
+                      (L-RESP-STRING),
+                      (OUTPUT-LENGTH),
+                     (TN-STATUS));
+        DOEND;
+    DOEND;                                         << H54724 >>
+
+      IF (T-PROTOCOL-IND) = "HTTP" THEN           <<24092>>
+        DO                                        <<24092>>
+          LET (C-G-SNACL-VCD) = (VC-DESCRIPTOR);  <<24092>>
+        DOEND                                     <<24092>>
+      ELSE                                        <<24092>>
+        DO                                        <<24092>>
+          LET (C-G-SNAND-VCD) = (VC-DESCRIPTOR);  <<24092>>
+        DOEND;                                    <<24092>>
+
+      IF (T-INQ-TRACE) = "Y" THEN
+        DO
+          DISPLAY "Handlr: TN-STATUS: ": TN-STATUS;
+          DATA(SET) T-INQ-TRACE ("Continue");
+        DOEND;
+
+      IF (T-DEBUG-SW) = "Y" THEN                     << H54724 >>
+        DO
+          DISPLAY "Donlup: TN-STATUS ":TN-STATUS
+                 :"Response returned ":L-RESP-STRING
+                 :" at ":$TODAY:" ":$TIME;
+          DISPLAY " ";
+        DOEND;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 8888-CALL-DTLNET:                                           >>
+<<-------------------------------------------------------------------->>
+
+<<------------------------------------------------------------------->>
+8888-ISSUE-MPE-COMMAND:
+<<------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering 8888-ISSUE-MPE-COMMAND"
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  MOVE (T-COMMAND)       = (T-COMMAND) + (C-CR);
+  LET  (PARM)            = 0;
+  LET  (ERROR)           = 0;
+  LET  (T-MSG-LEVEL)     = 1; << Supress Error/Warning Messages>>
+  LET  STATUS            = 0;
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "In 8888-CALL-DTLNET - T-COMMAND = ":T-COMMAND
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  PROC HPCICOMMAND (%(T-COMMAND),(ERROR),(PARM),#(T-MSG-LEVEL));
+
+  IF   (ERROR) <> 0  THEN
+  DO
+    Display "Error returned from issuing command.": ERROR;
+    PERFORM 2600-REWRITE-ODONLIPC-REC;
+    MOVE (G-IPARANAME) = "8888-ISSUE-MPE-COMMAND";
+    MOVE (G-IERRMSG) = "Error returned from issuing command.";
+    PERFORM SEND-ERROR-EMAIL;
+    PERFORM 9005-NB-FATAL-NONIMAGE;
+    EXIT;
+  DOEND;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 8888-ISSUE-MPE-COMMAND:                       24092         >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+8888-DISCONNECT:                                               <<40080>>
+<<-------------------------------------------------------------------->>
+                                                               <<40080>>
+  IF (C-IPC-UPD-TYPE) = "VA" THEN                  << H54724 >>
+    DO
+      MOVE (T-CHG-ADDR-UPD) = "DISCONNECT";
+    DOEND
+  ELSE
+    DO
+      MOVE (L-UPD-STRING) = "DISCONNECT";                      <<40080>>
+    DOEND;                                         << H54724 >>
+
+  LET (INPUT-LENGTH) = 10;                                     <<40080>>
+  LET (OUTPUT-LENGTH) = 2;                                     <<40080>>
+
+  IF (C-IPC-UPD-TYPE) = "VA" THEN                  << H54724 >>
+    DO
+      PROC DTLNET (CLANG(COBOL),
+                  (VC-DESCRIPTOR),
+                  (T-CHG-ADDR-UPD),
+                  (INPUT-LENGTH),
+                  (L-RESP-STRING),
+                  (OUTPUT-LENGTH),
+                  (TN-STATUS));
+    DOEND
+  ELSE
+    DO
+      PROC DTLNET (CLANG(COBOL),
+                  (VC-DESCRIPTOR),
+                  (L-UPD-STRING),
+                  (INPUT-LENGTH),
+                  (L-RESP-STRING),
+                  (OUTPUT-LENGTH),
+                  (TN-STATUS));
+    DOEND;                                         << H54724 >>
+                                                               <<40080>>
+RETURN;                                                        <<40080>>
+<<-------------------------------------------------------------------->>
+<< End of 8888-DISCONNECT:                       24092                >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+DETERMINE-PROTOCOL:                            <<24092>>
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering DETERMINE-PROTOCOL"
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H5424 >>
+
+  LIST                                         <<24092>>
+    T-VARS:                                    <<24092>>
+    T-CIVAR-NAME:                              <<24092>>
+    T-CIVAR-STATUS:                            <<24092>>
+    T-CIVAR-KWORD:                             <<24092>>
+    T-CIVAR-XKEYVAL        ,INIT:              <<24092>>
+    T-CIVAR-NKEYVAL        ,INIT:              <<24092>>
+    T-VITEMNUM2            ,INIT:              <<24092>>
+    T-VITEMNUM11           ,INIT:              <<24092>>
+    T-VITEMNUM14           ,INIT:              <<24092>>
+    T-VITEM2               ,INIT:              <<24092>>
+    T-VITEM11              ,INIT:              <<24092>>
+    T-VITEM14              ,INIT:              <<24092>>
+    T-CIVAR-STAT-D         ,INIT:
+    T-COMMAND:                                 <<24092>>
+    PARM:                                      <<24092>>
+    ERROR:                                     <<24092>>
+    T-MSG-LEVEL:                               <<24092>>
+    T-CR'INT                                   <<24092>>
+    ;                                          <<24092>>
+                                               <<24092>>
+  LET (T-VITEMNUM2) = 2;                       <<24092>>
+  LET (T-VITEMNUM11) = 11;                     <<24092>>
+  LET (T-VITEMNUM14) = 14;                     <<24092>>
+  LET (T-VITEM11) = 255;                       <<24092>>
+                                               <<24092>>
+  MOVE (T-CIVAR-NAME)                          <<24092>>
+    = "HANDLRXPROTOCOL_FOR_TYPE_"              <<24092>>
+    + (T-INQ-TYPE-IND);                        <<24092>>
+  LET  (T-CIVAR-KWORD) = 2;                    <<24092>>
+
+
+  PERFORM 8888-HPCIGETVAR;                     <<24092>>
+                                               <<24092>>
+  IF (T-CIVAR-STATUS) = 0 THEN                 <<24092>>
+  DO                                           <<24092>>
+    MOVE (T-PROTOCOL-IND) = (T-VITEM2);        <<24092>>
+  DOEND                                        <<24092>>
+  ELSE                                         <<24092>>
+  DO                                           <<24092>>
+    MOVE (T-PROTOCOL-IND) = "TELNET";          <<24092>>
+  DOEND;                                       <<24092>>
+                                               <<24092>>
+  MOVE (T-CIVAR-NAME) = "DTLNET_PROTOCOL";     <<24092>>
+  MOVE (T-VITEM2) = (T-PROTOCOL-IND);          <<24092>>
+
+
+                                               <<24092>>
+  PERFORM 8888-HPCIPUTVAR-STRING;              <<24092>>
+  SET(STACK) LIST(T-VARS);                     <<24092>>
+  SET(STACK) LIST(*);                          <<24092>>
+                                               <<24092>>
+  MOVE (T-HTTP-SOAP) = "None";                 <<24092>>
+                                               <<24092>>
+
+  IF (T-PROTOCOL-IND) = "HTTP" THEN            <<24092>>
+  DO                                           <<24092>>
+    PERFORM SET-HTTP-HEADER;                   <<24092>>
+                                               <<24092>>
+    MOVE (T-HTTP-SOAP) = UPPER(T-SOAP-ACTION); <<24092>>
+                                               <<24092>>
+    IF (T-HTTP-SOAP) <> "NONE" THEN            <<24092>>
+    DO                                         <<24092>>
+      MOVE (T-HTTP-SOAP)                       <<24092>>
+        = "http://tempuri.org/"                <<24092>>
+        + (T-SOAP-ACTION);                     <<24092>>
+    DOEND                                      <<24092>>
+    ELSE                                       <<24092>>
+    DO                                         <<24092>>
+      MOVE (T-HTTP-SOAP) = (T-SOAP-ACTION);    <<24092>>
+    DOEND;                                     <<24092>>
+                                               <<24092>>
+  DOEND                                        <<24092>>
+  ELSE                                         <<24092>>
+  DO                                           <<24092>>
+    MOVE (T-HTTP-SOAP) = "None";               <<24092>>
+  DOEND;                                       <<24092>>
+                                               <<24092>>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "In DETEMINE-PROTOC0L "
+             :"T-HTTP-SOAP = ":T-HTTP-SOAP
+             :" T-PROTOCOL-IND = ":T-PROTOCOL-IND
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  PERFORM SET-SOAP;                            <<24092>>
+  PERFORM CHECK-CMPUTRID-VALUES-FOR-HTTP;      <<24092>>
+RETURN;                                        <<24092>>
+<<-------------------------------------------------------------------->>
+<< End of DETERMINE-PROTOCOL:                    24092                >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+SET-HTTP-HEADER:                               <<24092>>
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering SET-HTTP-HEADER":
+              " at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  LIST                                         <<24092>>
+    T-VARS:                                    <<24092>>
+    T-CIVAR-NAME:                              <<24092>>
+    T-CIVAR-STATUS:                            <<24092>>
+    T-CIVAR-KWORD:                             <<24092>>
+    T-CIVAR-XKEYVAL        ,INIT:              <<24092>>
+    T-CIVAR-NKEYVAL        ,INIT:              <<24092>>
+    T-VITEMNUM2            ,INIT:              <<24092>>
+    T-VITEMNUM11           ,INIT:              <<24092>>
+    T-VITEMNUM14           ,INIT:              <<24092>>
+    T-VITEM2               ,INIT:              <<24092>>
+    T-VITEM11              ,INIT:              <<24092>>
+    T-VITEM14              ,INIT:              <<24092>>
+    T-CIVAR-STAT-D         ,INIT:
+    T-COMMAND:                                 <<24092>>
+    PARM:                                      <<24092>>
+    ERROR:                                     <<24092>>
+    T-MSG-LEVEL:                               <<24092>>
+    T-CR'INT                                   <<24092>>
+    ;                                          <<24092>>
+                                               <<24092>>
+  LET (T-VITEMNUM2) = 2;                       <<24092>>
+  LET (T-VITEMNUM11) = 11;                     <<24092>>
+  LET (T-VITEMNUM14) = 14;                     <<24092>>
+  LET (T-VITEM11) = 255;                       <<24092>>
+                                               <<24092>>
+  MOVE (T-CIVAR-NAME) = "DTLNET_HTTP_HEADER";  <<24092>>
+  IF (T-SOAP-ACTION) <> "None" then            <<24092>>
+  DO                                           <<24092>>
+    MOVE (T-HEADER)                            <<24092>>
+       = (T-SOAP-ACTION) - "Call-";            <<24092>>
+    LET  (T-CIVAR-KWORD) = 2;                  <<24092>>
+    MOVE (T-VITEM2) = " ";                     <<24092>>
+    PERFORM 8888-HPCIGETVAR;                   <<24092>>
+    MOVE (T-HEADER) = (T-VITEM2);              <<24092>>
+  DOEND                                        <<24092>>
+  ELSE                                         <<24092>>
+  DO                                           <<24092>>
+    MOVE (T-VITEM2) = (T-HEADER);              <<24092>>
+    PERFORM 8888-HPCIPUTVAR-STRING;            <<24092>>
+  DOEND;                                       <<24092>>
+                                               <<24092>>
+  MOVE (T-HEADER-COMP) = (T-HEADER) - "HPGateway"; <<24092>>
+                                                   <<24092>>
+  IF (T-HEADER-COMP) <> (T-HEADER) THEN            <<24092>>
+  DO                                               <<24092>>
+    MOVE (T-SOAP-ACTION) = (T-SOAP-ACTION) - "-";  <<24092>>
+  DOEND;                                       <<24092>>
+                                               <<24092>>
+
+  SET(STACK) LIST(T-VARS);                     <<24092>>
+  SET(STACK) LIST(*);                          <<24092>>
+                                               <<24092>>
+RETURN;                                        <<24092>>
+<<-------------------------------------------------------------------->>
+<< End of SET-HTTP-HEADER:                       24092                >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+SET-SOAP:                                      <<24092>>
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering SET-SOAP":" at ":$TODAY
+             :" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                         << H54724 >>
+
+  LIST                                         <<24092>>
+    T-VARS:                                    <<24092>>
+    T-CIVAR-NAME:                              <<24092>>
+    T-CIVAR-STATUS:                            <<24092>>
+    T-CIVAR-KWORD:                             <<24092>>
+    T-CIVAR-XKEYVAL        ,INIT:              <<24092>>
+    T-CIVAR-NKEYVAL        ,INIT:              <<24092>>
+    T-VITEMNUM2            ,INIT:              <<24092>>
+    T-VITEMNUM11           ,INIT:              <<24092>>
+    T-VITEMNUM14           ,INIT:              <<24092>>
+    T-VITEM2               ,INIT:              <<24092>>
+    T-VITEM11              ,INIT:              <<24092>>
+    T-VITEM14              ,INIT:              <<24092>>
+    T-CIVAR-STAT-D         ,INIT:
+    T-COMMAND:                                 <<24092>>
+    PARM:                                      <<24092>>
+    ERROR:                                     <<24092>>
+    T-MSG-LEVEL:                               <<24092>>
+    T-CR'INT                                   <<24092>>
+    ;                                          <<24092>>
+                                               <<24092>>
+  LET (T-VITEMNUM2) = 2;                       <<24092>>
+  LET (T-VITEMNUM11) = 11;                     <<24092>>
+  LET (T-VITEMNUM14) = 14;                     <<24092>>
+  LET (T-VITEM11) = 255;                       <<24092>>
+                                               <<24092>>
+  MOVE (T-CIVAR-NAME) = "DTLNET_SOAP_ACTION";  <<24092>>
+  MOVE (T-VITEM2) = (T-HTTP-SOAP);             <<24092>>
+  PERFORM 8888-HPCIPUTVAR-STRING;              <<24092>>
+                                               <<24092>>
+  LET (T-VITEMNUM2) = 2;                       <<24092>>
+  LET (T-VITEMNUM11) = 11;                     <<24092>>
+  LET (T-VITEMNUM14) = 14;                     <<24092>>
+  LET (T-VITEM11) = 255;                       <<24092>>
+                                               <<24092>>
+  MOVE (T-CIVAR-NAME) = "DSOAP_ACTION";        <<24092>>
+  MOVE (T-VITEM2) = (T-SOAP-ACTION);           <<24092>>
+  PERFORM 8888-HPCIPUTVAR-STRING;              <<24092>>
+
+                                                 <<24092>>
+  SET(STACK) LIST(T-VARS);                     <<24092>>
+  SET(STACK) LIST(*);                          <<24092>>
+RETURN;                                        <<24092>>
+<<-------------------------------------------------------------------->>
+<< End of SET-SOAP:                              24092                >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+CHECK-CMPUTRID-VALUES-FOR-HTTP:
+<<-------------------------------------------------------------------->>
+  MOVE (G-IPARANAME) = "CHECK-CMPUTRID-VALUES-FOR-HTTP";
+
+  LET  (NB-ERROR-STATUS) = 0;
+
+  IF (T-PROTOCOL-IND) = "HTTP" THEN
+  DO
+
+    IF (C-G-TS-HOST-DEV) = "1" THEN
+    DO
+
+      IF (C-G-TS-VEH-UPD) <> "M" THEN
+      DO
+        MOVE (G-IERRMSG) = "FATAL ERROR -HOSTDEV=1 but VEHUPD IS NOT M"
+                         + SPACE("- ABORTING",1);
+        PERFORM SEND-ERROR-EMAIL;
+        MOVE (NB-ERROR-REMARK) = "ERROR -HOSTDEV=1 but VEHUPD IS NOT M";
+        PERFORM 9005-NB-FATAL-NONIMAGE;
+      DOEND;
+
+    DOEND;
+
+    IF (C-G-TS-HOST-DEV) = "2" THEN
+    DO
+
+      IF (C-G-TS-VEH-UPD) <> "E" THEN
+      DO
+        MOVE (G-IERRMSG) = "FATAL ERROR -HOSTDEV=2 but VEHUPD IS NOT E"
+                         + SPACE("- ABORTING",1);
+        PERFORM SEND-ERROR-EMAIL;
+        MOVE (NB-ERROR-REMARK) = "ERROR -HOSTDEV=2 but VEHUPD IS NOT E";
+        PERFORM 9005-NB-FATAL-NONIMAGE;
+      DOEND;
+
+    DOEND;
+
+    IF (C-G-TS-HOST-DEV) = "3" THEN
+    DO
+
+      IF (C-G-TS-VEH-UPD) <> "U" THEN
+      DO
+        MOVE (G-IERRMSG) = "FATAL ERROR -HOSTDEV=3 but VEHUPD IS NOT U"
+                         + SPACE("- ABORTING",1);
+        PERFORM SEND-ERROR-EMAIL;
+        MOVE (NB-ERROR-REMARK) = "ERROR -HOSTDEV=3 but VEHUPD IS NOT U";
+        PERFORM 9005-NB-FATAL-NONIMAGE;
+      DOEND;
+
+    DOEND;
+
+  DOEND;
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of CHECK-CMPUTRID-VALUES-FOR-HTTP:        24092                >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+8888-HPCIGETVAR:
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN              << H54724 >>
+    DO
+      DISPLAY "Entering 8888-HPCIGETVAR"
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;                                << H54724 >>
+
+  PROC HPCIGETVAR ((T-CIVAR-NAME)
+                  ,(T-CIVAR-STATUS)
+                 ,#(T-CIVAR-KWORD)
+                  ,(T-VITEM2),,,,,,,,,,);
+
+
+  << H54724 >>
+  << IF (T-DEBUG-SW) = "Y" THEN
+    DO
+      DISPLAY "In 8888-HPCIGETVAR ":"T-CIVAR-NAME = ":T-CIVAR-NAME
+             :"T-CIVAR-STATUS = ":T-CIVAR-STATUS:"T-CIVAR-KWORD = "
+             :T-CIVAR-KWORD:" T-VITEM2 = ":T-VITEM2:" at ":$TODAY
+             :$TIME;
+      DISPLAY " ";
+    DOEND;                                          H54724 >>
+  << H54724 >>
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 8888-HPCIGETVAR:                                            >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+8888-HPCIPUTVAR-STRING:
+<<-------------------------------------------------------------------->>
+
+  IF (T-DEBUG-SW) = "Y" THEN                       << H54724 >>
+    DO
+      DISPLAY "Entering 8888-HPCIPUTVAR-STRING"
+             :" at ":$TODAY:" ":$TIME;
+      DISPLAY " ";
+    DOEND;
+
+  PROC HPCIPUTVAR (
+       %(T-CIVAR-NAME),
+        (T-CIVAR-STATUS),
+       #(T-VITEMNUM2),
+        (T-VITEM2),
+       #(T-VITEMNUM11),
+        (T-VITEM11),
+       #(T-VITEMNUM14),
+        (T-VITEM14)
+                  );
+  IF (T-CIVAR-STATUS) <> 0 THEN
+  DO
+    MOVE (C-SUBS-LABEL) = "SUBS:";
+    LET (C-SUBS-STATD) = (C-SUBSYS-STAT);
+    MOVE (C-SEMI) = ";";
+    MOVE (C-INFO-LABEL) = "INFO:";
+    LET (C-INFO-STATD) = (C-INFO-STAT);
+
+    Display "Error returned from HPCIPUTVAR."
+            :T-CIVAR-STAT-D
+            ;
+    PERFORM 2600-REWRITE-ODONLIPC-REC;
+    MOVE (G-IPARANAME) = "8888-HPCIPUTVAR-STRING";
+    MOVE (G-IERRMSG) = "Error from HPCIPUTVAR."
+       + SPACE((T-CIVAR-STAT-D),1);
+    PERFORM SEND-ERROR-EMAIL;
+    PERFORM 9005-NB-FATAL-NONIMAGE;
+    EXIT;
+  DOEND;
+
+
+RETURN;
+<<-------------------------------------------------------------------->>
+<< End of 8888-HPCIPUTVAR-STRING:                                     >>
+<<-------------------------------------------------------------------->>
+
+<<-------------------------------------------------------------------->>
+SEND-ERROR-EMAIL:
+<<-------------------------------------------------------------------->>
+LIST T-NB-EMPTY, INIT:
+     T-NB-MSG-LEVEL;
+
+<< Value length of G-ICOMMAND must not exceed 250 characters>>
+MOVE (G-ICOMMAND) = "XEQ DONLTELL"
+                  + SPACE("SENDMSG=",1)
+                  + "**"
+                  + "Error in:"
+                  + SPACE((G-IPARANAME),1)
+                  + "!!CRLF**"
+                  + STRING((G-IERRMSG),1,76)
+                  + "!!CRLF**"
+                  + "Type:"
+                  + SPACE((C-IPC-UPD-TYPE),1)
+                  + "!!CRLF**"
+                  + "Tran: ("
+                  + (C-IPC-KEY)
+                  + ")"
+                  + "!!CRLF**"
+                  + (T-KEY-FOR-EMAIL)
+                  + "!!CRLF**"
+                  + "DONLUP:"
+                  + SPACE((T-VERSIONID),1);
+
+MOVE (G-ICOMMAND) = STRING((G-ICOMMAND),1,249) + (C-CR);
+
+PERFORM 9090-NB-HPCICOMMAND;
+
+SET(STACK) LIST(T-NB-EMPTY);
+SET(STACK) LIST(*);
+
+RETURN;
+
+<<-------------------------------------------------------------------->>
+<< END OF SEND-ERROR-EMAIL                                            >>
+<<-------------------------------------------------------------------->>
+
+!INCLUDE(LONBLOCK.INCLUDES)
+!INCLUDE(GLNBROUT.INCLUDES)
+!INCLUDE(LONBRGDL.INCLUDES)                                 << H31106 >>
+
+END DONLUP;
